@@ -1,0 +1,153 @@
+"""Обработчики сообщений и команд Telegram."""
+
+import logging
+from collections.abc import Awaitable, Callable
+from typing import Any
+
+from aiogram import BaseMiddleware, F, Router
+from aiogram.filters import Command, CommandStart
+from aiogram.types import (
+    CallbackQuery,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    Message,
+    TelegramObject,
+)
+from aiogram.utils.chat_action import ChatActionSender
+
+from bot import texts
+from bot.interpreter import Interpreter, InterpreterError
+from bot.safety import CRISIS_REPLY, looks_like_crisis
+from bot.storage import DreamStorage
+
+logger = logging.getLogger(__name__)
+
+TELEGRAM_LIMIT = 4096
+FORGET_YES_DATA = "forget:yes"
+FORGET_NO_DATA = "forget:no"
+
+
+class AccessMiddleware(BaseMiddleware):
+    """Пускает только разрешённых пользователей. Без списка — режим настройки."""
+
+    def __init__(self, allowed_user_ids: frozenset[int]) -> None:
+        self.allowed = allowed_user_ids
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: dict[str, Any],
+    ) -> Any:
+        user = getattr(event, "from_user", None)
+        if user is None:
+            return None
+        if not self.allowed:
+            logger.info("Режим настройки: сообщение от Telegram id %s", user.id)
+            await _reply(event, texts.SETUP_MODE.format(user_id=user.id))
+            return None
+        if user.id not in self.allowed:
+            logger.info("Отказ в доступе: Telegram id %s", user.id)
+            await _reply(event, texts.NOT_ALLOWED)
+            return None
+        return await handler(event, data)
+
+
+async def _reply(event: TelegramObject, text: str) -> None:
+    if isinstance(event, Message):
+        await event.answer(text)
+    elif isinstance(event, CallbackQuery):
+        await event.answer(text, show_alert=True)
+
+
+def _cut(text: str, limit: int) -> str:
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
+
+
+def create_router(storage: DreamStorage, interpreter: Interpreter) -> Router:
+    router = Router()
+
+    @router.message(CommandStart())
+    async def cmd_start(message: Message) -> None:
+        await message.answer(texts.START)
+
+    @router.message(Command("help"))
+    async def cmd_help(message: Message) -> None:
+        await message.answer(texts.HELP)
+
+    @router.message(Command("history"))
+    async def cmd_history(message: Message) -> None:
+        records = await storage.latest(message.from_user.id, limit=5)
+        if not records:
+            await message.answer(texts.HISTORY_EMPTY)
+            return
+        await message.answer(texts.HISTORY_HEADER.format(count=len(records)))
+        for record in reversed(records):
+            item = texts.HISTORY_ITEM.format(
+                date=record.created_at.astimezone().strftime("%d.%m.%Y %H:%M"),
+                dream=_cut(record.dream_text, 1000),
+                interpretation=record.interpretation,
+            )
+            await message.answer(_cut(item, TELEGRAM_LIMIT))
+
+    @router.message(Command("forget"))
+    async def cmd_forget(message: Message) -> None:
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text=texts.FORGET_YES, callback_data=FORGET_YES_DATA),
+                    InlineKeyboardButton(text=texts.FORGET_NO, callback_data=FORGET_NO_DATA),
+                ]
+            ]
+        )
+        await message.answer(texts.FORGET_CONFIRM, reply_markup=keyboard)
+
+    @router.callback_query(F.data == FORGET_YES_DATA)
+    async def forget_yes(callback: CallbackQuery) -> None:
+        count = await storage.delete_all(callback.from_user.id)
+        logger.info("Пользователь %s удалил дневник (%d записей)", callback.from_user.id, count)
+        await callback.answer()
+        if callback.message:
+            await callback.message.edit_text(texts.FORGET_DONE.format(count=count))
+
+    @router.callback_query(F.data == FORGET_NO_DATA)
+    async def forget_no(callback: CallbackQuery) -> None:
+        await callback.answer()
+        if callback.message:
+            await callback.message.edit_text(texts.FORGET_CANCELLED)
+
+    @router.message(F.text & ~F.text.startswith("/"))
+    async def on_dream(message: Message) -> None:
+        text = message.text.strip()
+        user_id = message.from_user.id
+        if len(text) > texts.MAX_DREAM_LENGTH:
+            await message.answer(
+                texts.TOO_LONG.format(length=len(text), limit=texts.MAX_DREAM_LENGTH)
+            )
+            return
+        if looks_like_crisis(text):
+            logger.info("Пользователь %s: сработала кризисная проверка", user_id)
+            await message.answer(CRISIS_REPLY)
+            return
+
+        logger.info("Пользователь %s: толкование сна (%d символов)", user_id, len(text))
+        try:
+            async with ChatActionSender.typing(bot=message.bot, chat_id=message.chat.id):
+                interpretation = await interpreter.interpret(text)
+        except InterpreterError:
+            logger.error("Пользователь %s: Gemini не ответил", user_id)
+            await message.answer(texts.API_ERROR)
+            return
+
+        await storage.add(user_id, text, interpretation)
+        await message.answer(_cut(interpretation, TELEGRAM_LIMIT))
+
+    @router.message(F.text.startswith("/"))
+    async def unknown_command(message: Message) -> None:
+        await message.answer(texts.HELP)
+
+    @router.message()
+    async def non_text(message: Message) -> None:
+        await message.answer(texts.ONLY_TEXT)
+
+    return router
