@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 
 
 def parse_user_ids(raw: str | None) -> frozenset[int]:
@@ -25,6 +26,7 @@ class Settings:
     telegram_token: str
     gemini_api_key: str
     gemini_model: str
+    gemini_fallback_model: str
     allowed_user_ids: frozenset[int]
     database_path: Path
 
@@ -48,6 +50,8 @@ def load_settings(env_file: Path | None = None) -> Settings:
         telegram_token=token,
         gemini_api_key=os.getenv("GEMINI_API_KEY", "").strip(),
         gemini_model=os.getenv("GEMINI_MODEL", "").strip() or DEFAULT_MODEL,
+        gemini_fallback_model=os.getenv("GEMINI_FALLBACK_MODEL", "").strip()
+        or DEFAULT_FALLBACK_MODEL,
         allowed_user_ids=parse_user_ids(os.getenv("ALLOWED_USER_IDS")),
         database_path=db_path,
     )

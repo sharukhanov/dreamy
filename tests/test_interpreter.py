@@ -12,9 +12,14 @@ def make_client(side_effect):
     return client, generate
 
 
-def make_interpreter(client):
+def make_interpreter(client, fallback=None):
     return GeminiInterpreter(
-        api_key="x", model="test-model", system_prompt="SYS", client=client, retry_delay=0
+        api_key="x",
+        model="test-model",
+        system_prompt="SYS",
+        fallback_model=fallback,
+        client=client,
+        retry_delay=0,
     )
 
 
@@ -47,3 +52,10 @@ async def test_empty_response_counts_as_error():
     with pytest.raises(InterpreterError):
         await make_interpreter(client).interpret("сон")
     assert generate.call_count == 2
+
+
+async def test_retry_uses_fallback_model():
+    client, generate = make_client([RuntimeError("503"), SimpleNamespace(text="ок")])
+    assert await make_interpreter(client, fallback="spare").interpret("сон") == "ок"
+    models = [c.kwargs["model"] for c in generate.call_args_list]
+    assert models == ["test-model", "spare"]

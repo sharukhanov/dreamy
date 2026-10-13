@@ -56,6 +56,7 @@ async def run() -> None:
     interpreter = GeminiInterpreter(
         api_key=settings.gemini_api_key or "unset",
         model=settings.gemini_model,
+        fallback_model=settings.gemini_fallback_model,
         system_prompt=build_system_prompt(),
     )
 
