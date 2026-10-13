@@ -2,9 +2,12 @@
 
 import asyncio
 import logging
+import os
+import ssl
 import sys
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.session.aiohttp import AiohttpSession
 from aiogram.types import BotCommand
 
 from bot.config import PROJECT_ROOT, load_settings
@@ -31,6 +34,15 @@ def setup_logging() -> None:
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
 
+def make_session() -> AiohttpSession:
+    """Сессия Telegram. Учитывает SSL_CERT_FILE, если он задан (корпоративные прокси)."""
+    session = AiohttpSession()
+    cafile = os.getenv("SSL_CERT_FILE")
+    if cafile and os.path.isfile(cafile):
+        session._connector_init["ssl"] = ssl.create_default_context(cafile=cafile)
+    return session
+
+
 async def run() -> None:
     settings = load_settings()
     log = logging.getLogger("bot")
@@ -47,7 +59,7 @@ async def run() -> None:
         system_prompt=build_system_prompt(),
     )
 
-    bot = Bot(token=settings.telegram_token)
+    bot = Bot(token=settings.telegram_token, session=make_session())
     dp = Dispatcher()
     access = AccessMiddleware(settings.allowed_user_ids)
     dp.message.outer_middleware(access)

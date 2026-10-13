@@ -24,7 +24,7 @@ fi
 mkdir -p logs
 nohup .venv/bin/python -m bot.main >> logs/console.log 2>&1 &
 echo $! > bot.pid
-sleep 3
+sleep 8
 if kill -0 "$(cat bot.pid)" 2>/dev/null; then
   echo "Бот включён. Он отвечает, пока работает этот компьютер."
 else
