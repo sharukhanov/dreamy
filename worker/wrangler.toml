@@ -22,4 +22,4 @@ enabled = true
 [[d1_databases]]
 binding = "DB"
 database_name = "dream-bot"
-database_id = "REPLACE_WITH_DATABASE_ID"
+database_id = "c39ad64f-9cf0-4897-9b1e-a67ad6a5e6a0"
