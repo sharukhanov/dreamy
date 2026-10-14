@@ -65,6 +65,7 @@ async def _reply(event: TelegramObject, text: str) -> None:
 _BOLD_RE = re.compile(r"\*\*([^*\n]+?)\*\*")
 _BOOKS_RE = re.compile(r"^📖[ \t*]*Сонники[ \t*:]*$", re.M)
 _PSYCH_RE = re.compile(r"^🧠[ \t*]*Психология[ \t*:]*$", re.M)
+_SLEEP_RE = re.compile(r"^😴[ \t*]*Совет[ \t]+для[ \t]+сна[ \t*:—–-]*", re.M | re.I)
 _REAL_RE = re.compile(r"^🏠[ \t*]*Из[ \t]+реальн\S*[ \t]+жизн[^\s*:—–-]*[ \t*:—–-]*", re.M | re.I)
 _MAIN_RE = re.compile(r"^✨[ \t]*(\S.*)$", re.M)
 
@@ -82,6 +83,7 @@ def normalize_layout(text: str) -> str:
     text = _BOOKS_RE.sub("📖 **Сонники**", text)
     text = _PSYCH_RE.sub("🧠 **Психология**", text)
     text = _REAL_RE.sub("🏠 ", text)
+    text = _SLEEP_RE.sub("😴 **Совет для сна** — ", text)
     return re.sub(r"^🏠 (\S)", lambda m: "🏠 " + m.group(1).upper(), text, flags=re.M)
 
 

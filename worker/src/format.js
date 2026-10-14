@@ -15,6 +15,7 @@ export function normalizeLayout(text) {
   return text
     .replace(/^📖[ \t*]*Сонники[ \t*:]*$/gmu, "📖 **Сонники**")
     .replace(/^🧠[ \t*]*Психология[ \t*:]*$/gmu, "🧠 **Психология**")
+    .replace(/^😴[ \t*]*Совет[ \t]+для[ \t]+сна[ \t*:—–-]*/gimu, "😴 **Совет для сна** — ")
     .replace(/^🏠[ \t*]*Из[ \t]+реальн\S*[ \t]+жизн[^\s*:—–-]*[ \t*:—–-]*/gimu, "🏠 ")
     .replace(/^🏠 (\S)/gmu, (m, ch) => `🏠 ${ch.toUpperCase()}`);
 }
