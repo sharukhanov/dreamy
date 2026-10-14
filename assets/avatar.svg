@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="640" height="640">
+  <defs>
+    <radialGradient id="sky" cx="50%" cy="38%" r="75%">
+      <stop offset="0%" stop-color="#5b3fa8"/>
+      <stop offset="55%" stop-color="#2a1f6b"/>
+      <stop offset="100%" stop-color="#120d33"/>
+    </radialGradient>
+    <linearGradient id="moon" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff3c4"/>
+      <stop offset="60%" stop-color="#ffd36e"/>
+      <stop offset="100%" stop-color="#f5a742"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffd98a" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#ffd98a" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cloud" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#cfc6f5" stop-opacity="0.9"/>
+    </linearGradient>
+    <mask id="crescent">
+      <rect width="640" height="640" fill="black"/>
+      <circle cx="300" cy="290" r="165" fill="white"/>
+      <circle cx="380" cy="235" r="150" fill="black"/>
+    </mask>
+    <path id="star" d="M0,-1 C0.12,-0.12 0.12,-0.12 1,0 C0.12,0.12 0.12,0.12 0,1 C-0.12,0.12 -0.12,0.12 -1,0 C-0.12,-0.12 -0.12,-0.12 0,-1Z"/>
+  </defs>
+
+  <rect width="640" height="640" fill="url(#sky)"/>
+
+  <!-- далёкие звёзды -->
+  <g fill="#ffffff">
+    <circle cx="120" cy="150" r="3" opacity="0.7"/>
+    <circle cx="520" cy="120" r="2.5" opacity="0.6"/>
+    <circle cx="560" cy="300" r="3" opacity="0.5"/>
+    <circle cx="90" cy="360" r="2.5" opacity="0.5"/>
+    <circle cx="200" cy="90" r="2" opacity="0.6"/>
+    <circle cx="450" cy="80" r="2" opacity="0.5"/>
+  </g>
+
+  <!-- свечение и луна -->
+  <circle cx="300" cy="290" r="230" fill="url(#glow)"/>
+  <rect width="640" height="640" fill="url(#moon)" mask="url(#crescent)"/>
+
+  <!-- спящий глаз на луне -->
+  <path d="M188 318 Q214 344 242 322" fill="none" stroke="#9c5a12" stroke-width="9" stroke-linecap="round"/>
+  <g stroke="#9c5a12" stroke-width="6" stroke-linecap="round">
+    <line x1="198" y1="331" x2="190" y2="345"/>
+    <line x1="215" y1="337" x2="213" y2="352"/>
+    <line x1="232" y1="333" x2="238" y2="347"/>
+  </g>
+  <circle cx="200" cy="372" r="16" fill="#ff9f7a" opacity="0.45"/>
+
+  <!-- сверкающие звёзды -->
+  <use href="#star" transform="translate(445 215) scale(34)" fill="#fff6d6"/>
+  <use href="#star" transform="translate(505 330) scale(20)" fill="#ffe7a3"/>
+  <use href="#star" transform="translate(150 215) scale(16)" fill="#ffffff" opacity="0.9"/>
+  <use href="#star" transform="translate(395 135) scale(13)" fill="#ffffff" opacity="0.85"/>
+
+  <!-- облако -->
+  <g fill="url(#cloud)">
+    <circle cx="250" cy="482" r="58"/>
+    <circle cx="330" cy="455" r="72"/>
+    <circle cx="410" cy="488" r="52"/>
+    <circle cx="190" cy="505" r="40"/>
+    <rect x="180" y="490" width="270" height="55" rx="27"/>
+  </g>
+</svg>
