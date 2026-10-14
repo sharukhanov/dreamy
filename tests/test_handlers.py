@@ -129,3 +129,16 @@ async def test_bold_main_thought_is_html(harness):
     harness.interpreter.reply = "✨ **Главное** <x>"
     replies = await harness.send(make_message_update(OWNER_ID, DREAM))
     assert replies == ["✨ <b>Главное</b> &lt;x&gt;"]
+
+
+def test_layout_is_normalized():
+    from bot.handlers import to_telegram_html
+
+    raw = (
+        "✨ Мысль\n\n🏠 **Из реальная жизнь** — так мозг дожёвывает стресс.\n\n"
+        "📖 Сонники\n\n🧠 **Психология:**"
+    )
+    assert to_telegram_html(raw) == (
+        "✨ <b>Мысль</b>\n\n🏠 Так мозг дожёвывает стресс.\n\n"
+        "📖 <b>Сонники</b>\n\n🧠 <b>Психология</b>"
+    )

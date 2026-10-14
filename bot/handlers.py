@@ -63,11 +63,29 @@ async def _reply(event: TelegramObject, text: str) -> None:
 
 
 _BOLD_RE = re.compile(r"\*\*([^*\n]+?)\*\*")
+_BOOKS_RE = re.compile(r"^📖[ \t*]*Сонники[ \t*:]*$", re.M)
+_PSYCH_RE = re.compile(r"^🧠[ \t*]*Психология[ \t*:]*$", re.M)
+_REAL_RE = re.compile(r"^🏠[ \t*]*Из[ \t]+реальн\S*[ \t]+жизн[^\s*:—–-]*[ \t*:—–-]*", re.M | re.I)
+_MAIN_RE = re.compile(r"^✨[ \t]*(\S.*)$", re.M)
+
+
+def normalize_layout(text: str) -> str:
+    """Выравнивает оформление расклада независимо от того, как модель расставила звёздочки."""
+    text = _BOOKS_RE.sub("📖 **Сонники**", text)
+    text = _PSYCH_RE.sub("🧠 **Психология**", text)
+    text = _REAL_RE.sub("🏠 ", text)
+    return re.sub(r"^🏠 (\S)", lambda m: "🏠 " + m.group(1).upper(), text, flags=re.M)
 
 
 def to_telegram_html(text: str) -> str:
-    """**текст** → жирный, остальное экранируется."""
-    return _BOLD_RE.sub(r"<b>\1</b>", html.escape(text, quote=False)).replace("**", "")
+    """**текст** → жирный, остальное экранируется. Главная мысль (✨) всегда жирная."""
+    escaped = html.escape(normalize_layout(text), quote=False)
+    result = _BOLD_RE.sub(r"<b>\1</b>", escaped).replace("**", "")
+    return _MAIN_RE.sub(
+        lambda m: m.group(0) if m.group(1).startswith("<b>") else f"✨ <b>{m.group(1)}</b>",
+        result,
+        count=1,
+    )
 
 
 def _cut(text: str, limit: int) -> str:

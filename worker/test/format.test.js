@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stripMarkup, toTelegramHtml } from "../src/format.js";
+import { normalizeLayout, stripMarkup, toTelegramHtml } from "../src/format.js";
 
 describe("форматирование", () => {
   it("жирный текст и экранирование", () => {
@@ -11,6 +11,15 @@ describe("форматирование", () => {
   it("главная мысль всегда жирная", () => {
     expect(toTelegramHtml("✨ Мысль без звёздочек\n\n📖 x")).toBe("✨ <b>Мысль без звёздочек</b>\n\n📖 x");
     expect(toTelegramHtml("✨ **Уже жирная**")).toBe("✨ <b>Уже жирная</b>");
+  });
+
+  it("выравнивает заголовки и строку про реальную жизнь", () => {
+    const raw = "✨ **Мысль**\n\n🏠 **Из реальная жизнь** — так мозг дожёвывает стресс.\n\n📖 Сонники\n• **Лофф** — x\n\n🧠 **Психология:**\n• **Юнг** — y";
+    expect(normalizeLayout(raw)).toBe(
+      "✨ **Мысль**\n\n🏠 Так мозг дожёвывает стресс.\n\n📖 **Сонники**\n• **Лофф** — x\n\n🧠 **Психология**\n• **Юнг** — y",
+    );
+    expect(normalizeLayout("🏠 Из реальной жизни — возможно, вы устали.")).toBe("🏠 Возможно, вы устали.");
+    expect(normalizeLayout("🏠 Если недавно было похожее")).toBe("🏠 Если недавно было похожее");
   });
 
   it("stripMarkup", () => {
