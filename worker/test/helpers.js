@@ -47,6 +47,9 @@ export class MemoryStorage {
   async latest(userId, limit = 5) {
     return this.rows.filter((r) => r.user_id === userId).sort((a, b) => b.id - a.id).slice(0, limit);
   }
+  async countSince(userId, sinceIso) {
+    return this.rows.filter((r) => r.user_id === userId && r.created_at >= sinceIso).length;
+  }
   async deleteAll(userId) {
     const before = this.rows.length;
     this.rows = this.rows.filter((r) => r.user_id !== userId);
@@ -94,12 +97,13 @@ export function callbackUpdate(userId, data) {
   };
 }
 
-export function makeDeps(allowed = [OWNER_ID]) {
+export function makeDeps(allowed = [OWNER_ID], { isPublic = false, dailyLimit = 0 } = {}) {
   return {
+    access: { isPublic, ids: new Set(allowed) },
+    dailyLimit,
     telegram: new FakeTelegram(),
     interpreter: new FakeInterpreter(),
     storage: new MemoryStorage(),
-    allowedIds: new Set(allowed),
     timeZone: "Europe/Moscow",
   };
 }

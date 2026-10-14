@@ -1,7 +1,7 @@
 // Точка входа Cloudflare Worker: Telegram присылает сюда апдейты (webhook).
 import promptTemplate from "../../prompts/interpreter.md";
 import traditionsYaml from "../../config/traditions.yaml";
-import { handleUpdate, parseUserIds } from "./bot.js";
+import { handleUpdate, parseAccess } from "./bot.js";
 import { GeminiInterpreter } from "./gemini.js";
 import { buildSystemPrompt } from "./prompt.js";
 import { D1Storage } from "./storage.js";
@@ -31,7 +31,8 @@ export default {
         systemPrompt: SYSTEM_PROMPT,
       }),
       storage: new D1Storage(env.DB),
-      allowedIds: parseUserIds(env.ALLOWED_USER_IDS),
+      access: parseAccess(env.ALLOWED_USER_IDS),
+      dailyLimit: Number(env.DAILY_LIMIT ?? 10),
       timeZone: env.TIME_ZONE || "Europe/Moscow",
     };
 

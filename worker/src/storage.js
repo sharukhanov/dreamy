@@ -32,6 +32,14 @@ export class D1Storage {
     return results;
   }
 
+  async countSince(userId, sinceIso) {
+    const row = await this.db
+      .prepare("SELECT COUNT(*) AS n FROM dreams WHERE user_id = ? AND created_at >= ?")
+      .bind(userId, sinceIso)
+      .first();
+    return row?.n ?? 0;
+  }
+
   async deleteAll(userId) {
     const res = await this.db.prepare("DELETE FROM dreams WHERE user_id = ?").bind(userId).run();
     return res.meta.changes;

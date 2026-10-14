@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { handleUpdate, parseUserIds } from "../src/bot.js";
+import { handleUpdate, parseAccess, parseUserIds } from "../src/bot.js";
 import * as texts from "../src/texts.js";
 import { OWNER_ID, STRANGER_ID, callbackUpdate, makeDeps, messageUpdate } from "./helpers.js";
 
@@ -81,6 +81,39 @@ describe("доступ", () => {
     await d.storage.add(OWNER_ID, "сон", "т");
     await handleUpdate(callbackUpdate(STRANGER_ID, "forget:yes"), d);
     expect(await d.storage.latest(OWNER_ID)).toHaveLength(1);
+  });
+
+  it("в открытом режиме отвечает любому", async () => {
+    const d = makeDeps([], { isPublic: true });
+    await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
+    expect(d.telegram.texts).toEqual(["Толкование сна."]);
+  });
+
+  it("дневной лимит для обычных пользователей", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true, dailyLimit: 2 });
+    for (let i = 0; i < 3; i++) await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
+    expect(d.interpreter.calls).toHaveLength(2);
+    expect(d.telegram.texts.at(-1)).toBe(texts.dailyLimit(2));
+  });
+
+  it("у владельца лимита нет", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true, dailyLimit: 1 });
+    for (let i = 0; i < 3; i++) await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    expect(d.interpreter.calls).toHaveLength(3);
+  });
+
+  it("молчит в группах", async () => {
+    const d = makeDeps([], { isPublic: true });
+    const u = messageUpdate(STRANGER_ID, DREAM);
+    u.message.chat = { id: -100, type: "group" };
+    await handleUpdate(u, d);
+    expect(d.telegram.calls).toHaveLength(0);
+  });
+
+  it("разбирает режим доступа", () => {
+    expect(parseAccess("*").isPublic).toBe(true);
+    expect([...parseAccess("*, 44").ids]).toEqual([44]);
+    expect(parseAccess("44").isPublic).toBe(false);
   });
 
   it("разбирает список id", () => {

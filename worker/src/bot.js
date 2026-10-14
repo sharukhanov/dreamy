@@ -17,6 +17,15 @@ export function parseUserIds(raw) {
   return ids;
 }
 
+// ALLOWED_USER_IDS: "" — режим настройки; "1,2" — только эти люди;
+// "*" — все желающие; "*,1" — все, а у человека с id 1 нет дневного лимита.
+export function parseAccess(raw) {
+  const isPublic = String(raw || "")
+    .split(/[,;]/)
+    .some((p) => p.trim() === "*");
+  return { isPublic, ids: parseUserIds(raw) };
+}
+
 const cut = (text, limit) => (text.length <= limit ? text : text.slice(0, limit - 1).trimEnd() + "…");
 
 function formatDate(iso, timeZone) {
@@ -32,9 +41,9 @@ function formatDate(iso, timeZone) {
     .replace(",", "");
 }
 
-// deps: { telegram, interpreter, storage, allowedIds: Set<number>, timeZone }
+// deps: { telegram, interpreter, storage, access: {isPublic, ids}, dailyLimit, timeZone }
 export async function handleUpdate(update, deps) {
-  const { telegram, storage, allowedIds } = deps;
+  const { telegram, storage, access } = deps;
   if (typeof update.update_id === "number" && !(await storage.markUpdate(update.update_id))) {
     console.log(`Повторный апдейт ${update.update_id}, пропускаю`);
     return;
@@ -44,15 +53,18 @@ export async function handleUpdate(update, deps) {
   const callback = update.callback_query;
   const user = message?.from || callback?.from;
   if (!user) return;
+  // Бот работает только в личных сообщениях, в группах молчит.
+  const chatType = message?.chat?.type || callback?.message?.chat?.type;
+  if (chatType && chatType !== "private") return;
 
-  if (allowedIds.size === 0) {
+  if (!access.isPublic && access.ids.size === 0) {
     console.log(`Режим настройки: сообщение от Telegram id ${user.id}`);
     const reply = texts.setupMode(user.id);
     if (message) await telegram.sendMessage(message.chat.id, reply);
     else await telegram.answerCallbackQuery(callback.id, reply, true);
     return;
   }
-  if (!allowedIds.has(user.id)) {
+  if (!access.isPublic && !access.ids.has(user.id)) {
     console.log(`Отказ в доступе: Telegram id ${user.id}`);
     if (message) await telegram.sendMessage(message.chat.id, texts.NOT_ALLOWED);
     else await telegram.answerCallbackQuery(callback.id, texts.NOT_ALLOWED, true);
@@ -133,7 +145,7 @@ async function handleCommand(text, message, { telegram, storage, timeZone }) {
   }
 }
 
-async function handleDream(text, message, { telegram, interpreter, storage }) {
+async function handleDream(text, message, { telegram, interpreter, storage, access, dailyLimit }) {
   const chatId = message.chat.id;
   const userId = message.from.id;
 
@@ -149,6 +161,15 @@ async function handleDream(text, message, { telegram, interpreter, storage }) {
     console.log(`Пользователь ${userId}: сработала кризисная проверка`);
     await telegram.sendMessage(chatId, texts.CRISIS_REPLY);
     return;
+  }
+
+  if (dailyLimit > 0 && !access.ids.has(userId)) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    if ((await storage.countSince(userId, since)) >= dailyLimit) {
+      console.log(`Пользователь ${userId}: достигнут дневной лимит`);
+      await telegram.sendMessage(chatId, texts.dailyLimit(dailyLimit));
+      return;
+    }
   }
 
   console.log(`Пользователь ${userId}: толкование сна (${text.length} символов)`);

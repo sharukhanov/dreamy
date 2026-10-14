@@ -12,6 +12,9 @@ fallthrough = true
 GEMINI_MODEL = "gemini-3.8-flash"
 GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
 TIME_ZONE = "Europe/Moscow"
+# Сколько снов в сутки может прислать один человек (0 — без ограничений).
+# Люди, чьи id указаны в ALLOWED_USER_IDS, не ограничены.
+DAILY_LIMIT = "10"
 
 [observability]
 enabled = true
