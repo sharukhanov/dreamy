@@ -142,3 +142,12 @@ def test_layout_is_normalized():
         "✨ <b>Мысль</b>\n\n🏠 Так мозг дожёвывает стресс.\n\n"
         "📖 <b>Сонники</b>\n\n🧠 <b>Психология</b>"
     )
+
+
+def test_missing_house_emoji_is_added():
+    from bot.handlers import normalize_layout
+
+    assert (
+        normalize_layout("✨ М\n\nВозможно, стресс.\n\n📖 x")
+        == "✨ М\n\n🏠 Возможно, стресс.\n\n📖 x"
+    )

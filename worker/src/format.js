@@ -6,6 +6,12 @@ export function escapeHtml(text) {
 
 // Выравнивает оформление расклада, чтобы оно не зависело от того, как модель расставила звёздочки.
 export function normalizeLayout(text) {
+  // Абзац сразу после главной мысли — строка про реальную жизнь; если модель забыла 🏠, добавим.
+  const blocks = text.split(/\n{2,}/);
+  if (blocks.length > 2 && blocks[0].startsWith("✨") && !/^(🏠|📖|🧠|•)/u.test(blocks[1])) {
+    blocks[1] = `🏠 ${blocks[1]}`;
+    text = blocks.join("\n\n");
+  }
   return text
     .replace(/^📖[ \t*]*Сонники[ \t*:]*$/gmu, "📖 **Сонники**")
     .replace(/^🧠[ \t*]*Психология[ \t*:]*$/gmu, "🧠 **Психология**")

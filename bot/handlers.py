@@ -71,6 +71,14 @@ _MAIN_RE = re.compile(r"^✨[ \t]*(\S.*)$", re.M)
 
 def normalize_layout(text: str) -> str:
     """Выравнивает оформление расклада независимо от того, как модель расставила звёздочки."""
+    blocks = re.split(r"\n{2,}", text)
+    if (
+        len(blocks) > 2
+        and blocks[0].startswith("✨")
+        and not blocks[1].startswith(("🏠", "📖", "🧠", "•"))
+    ):
+        blocks[1] = "🏠 " + blocks[1]
+        text = "\n\n".join(blocks)
     text = _BOOKS_RE.sub("📖 **Сонники**", text)
     text = _PSYCH_RE.sub("🧠 **Психология**", text)
     text = _REAL_RE.sub("🏠 ", text)
