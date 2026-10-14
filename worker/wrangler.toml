@@ -1,0 +1,25 @@
+name = "dream-bot"
+main = "src/index.js"
+compatibility_date = "2026-09-01"
+
+# Подключаем текст промта и список традиций прямо в код воркера.
+[[rules]]
+type = "Text"
+globs = ["**/*.md", "**/*.yaml"]
+fallthrough = true
+
+[vars]
+GEMINI_MODEL = "gemini-3.8-flash"
+GEMINI_FALLBACK_MODEL = "gemini-3.5-flash-lite"
+TIME_ZONE = "Europe/Moscow"
+
+[observability]
+enabled = true
+
+# Секреты (задаются командой `wrangler secret put`, в репозиторий не попадают):
+# TELEGRAM_BOT_TOKEN, GEMINI_API_KEY, WEBHOOK_SECRET, ALLOWED_USER_IDS
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dream-bot"
+database_id = "REPLACE_WITH_DATABASE_ID"
