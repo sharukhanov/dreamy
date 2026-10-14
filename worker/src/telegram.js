@@ -21,6 +21,13 @@ export class Telegram {
     return this.call("sendMessage", { chat_id: chatId, text, ...extra });
   }
 
+  // Отправка с HTML-разметкой; если Telegram её не принял — тем же текстом без разметки.
+  async sendHtml(chatId, html, plain) {
+    const res = await this.call("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML" });
+    if (!res.ok && plain !== undefined) return this.sendMessage(chatId, plain);
+    return res;
+  }
+
   sendTyping(chatId) {
     return this.call("sendChatAction", { chat_id: chatId, action: "typing" });
   }

@@ -10,6 +10,9 @@ export class FakeTelegram {
   async sendMessage(chatId, text, extra = {}) {
     this.calls.push({ method: "sendMessage", chatId, text, extra });
   }
+  async sendHtml(chatId, html, plain) {
+    this.calls.push({ method: "sendMessage", chatId, text: html, plain, html: true });
+  }
   async sendTyping(chatId) {
     this.calls.push({ method: "sendTyping", chatId });
   }

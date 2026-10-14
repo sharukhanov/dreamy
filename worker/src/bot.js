@@ -1,5 +1,6 @@
 // Логика бота: обработка одного апдейта Telegram. Тексты снов в логи не пишем.
 import * as texts from "./texts.js";
+import { escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
 import { InterpreterError } from "./gemini.js";
 import { looksLikeCrisis } from "./safety.js";
 
@@ -119,12 +120,11 @@ async function handleCommand(text, message, { telegram, storage, timeZone }) {
       }
       await telegram.sendMessage(chatId, texts.historyHeader(records.length));
       for (const r of [...records].reverse()) {
-        const item = texts.historyItem(
-          formatDate(r.created_at, timeZone),
-          cut(r.dream_text, 1000),
-          r.interpretation,
-        );
-        await telegram.sendMessage(chatId, cut(item, TELEGRAM_LIMIT));
+        const date = formatDate(r.created_at, timeZone);
+        const dream = cut(r.dream_text, 1000);
+        const html = texts.historyItemHtml(date, escapeHtml(dream), toTelegramHtml(r.interpretation));
+        const plain = texts.historyItem(date, dream, stripMarkup(r.interpretation));
+        await telegram.sendHtml(chatId, html, cut(plain, TELEGRAM_LIMIT));
       }
       break;
     }
@@ -188,5 +188,5 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   }
 
   await storage.add(userId, text, interpretation);
-  await telegram.sendMessage(chatId, cut(interpretation, TELEGRAM_LIMIT));
+  await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT));
 }

@@ -100,7 +100,7 @@ async def test_history_shows_last_five(harness):
     assert replies[0] == texts.HISTORY_HEADER.format(count=5)
     body = replies[1:]
     assert len(body) == 5
-    assert "сон 2" in body[0] and "сон 6" in body[-1]
+    assert "<i>сон 2</i>" in body[0] and "сон 6" in body[-1]
     assert not any("чужой" in r for r in body)
 
 
@@ -123,3 +123,9 @@ async def test_stranger_cannot_forget(harness):
     await harness.storage.add(OWNER_ID, "сон", "толкование")
     await harness.send(make_callback_update(STRANGER_ID, FORGET_YES_DATA))
     assert len(await harness.storage.latest(OWNER_ID)) == 1
+
+
+async def test_bold_main_thought_is_html(harness):
+    harness.interpreter.reply = "✨ **Главное** <x>"
+    replies = await harness.send(make_message_update(OWNER_ID, DREAM))
+    assert replies == ["✨ <b>Главное</b> &lt;x&gt;"]

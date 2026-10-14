@@ -17,6 +17,15 @@ describe("сны", () => {
     expect(rows[0].dream_text).toBe(DREAM);
   });
 
+  it("выделяет главную мысль жирным и экранирует HTML", async () => {
+    const d = makeDeps();
+    d.interpreter.reply = "✨ **Главное** <тег>\n\n💭 Вопрос?";
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    const sent = d.telegram.calls.find((c) => c.html);
+    expect(sent.text).toBe("✨ <b>Главное</b> &lt;тег&gt;\n\n💭 Вопрос?");
+    expect(sent.plain).toBe("✨ Главное <тег>\n\n💭 Вопрос?");
+  });
+
   it("не толкует слишком длинный сон", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "а".repeat(4001)), d);
@@ -146,7 +155,7 @@ describe("команды", () => {
     const [header, ...body] = d.telegram.texts;
     expect(header).toBe(texts.historyHeader(5));
     expect(body).toHaveLength(5);
-    expect(body[0]).toContain("сон 2");
+    expect(body[0]).toContain("<i>сон 2</i>");
     expect(body[4]).toContain("сон 6");
     expect(body.some((t) => t.includes("чужой"))).toBe(false);
   });

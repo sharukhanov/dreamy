@@ -1,6 +1,8 @@
 """Обработчики сообщений и команд Telegram."""
 
+import html
 import logging
+import re
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -60,6 +62,14 @@ async def _reply(event: TelegramObject, text: str) -> None:
         await event.answer(text, show_alert=True)
 
 
+_BOLD_RE = re.compile(r"\*\*([^*\n]+?)\*\*")
+
+
+def to_telegram_html(text: str) -> str:
+    """**текст** → жирный, остальное экранируется."""
+    return _BOLD_RE.sub(r"<b>\1</b>", html.escape(text, quote=False)).replace("**", "")
+
+
 def _cut(text: str, limit: int) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
@@ -85,10 +95,10 @@ def create_router(storage: DreamStorage, interpreter: Interpreter) -> Router:
         for record in reversed(records):
             item = texts.HISTORY_ITEM.format(
                 date=record.created_at.astimezone().strftime("%d.%m.%Y %H:%M"),
-                dream=_cut(record.dream_text, 1000),
-                interpretation=record.interpretation,
+                dream=html.escape(_cut(record.dream_text, 1000), quote=False),
+                interpretation=to_telegram_html(record.interpretation),
             )
-            await message.answer(_cut(item, TELEGRAM_LIMIT))
+            await message.answer(item, parse_mode="HTML")
 
     @router.message(Command("forget"))
     async def cmd_forget(message: Message) -> None:
@@ -140,7 +150,7 @@ def create_router(storage: DreamStorage, interpreter: Interpreter) -> Router:
             return
 
         await storage.add(user_id, text, interpretation)
-        await message.answer(_cut(interpretation, TELEGRAM_LIMIT))
+        await message.answer(to_telegram_html(interpretation), parse_mode="HTML")
 
     @router.message(F.text.startswith("/"))
     async def unknown_command(message: Message) -> None:
