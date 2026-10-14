@@ -33,6 +33,18 @@ async def test_success_passes_prompt_and_model():
     assert kwargs["config"].system_instruction == "SYS"
 
 
+async def test_callable_prompt_is_built_per_dream():
+    client, generate = make_client([SimpleNamespace(text="a"), SimpleNamespace(text="b")])
+    counter = iter(["P1", "P2"])
+    interp = GeminiInterpreter(
+        api_key="x", model="m", system_prompt=lambda: next(counter), client=client, retry_delay=0
+    )
+    await interp.interpret("1")
+    await interp.interpret("2")
+    prompts = [c.kwargs["config"].system_instruction for c in generate.call_args_list]
+    assert prompts == ["P1", "P2"]
+
+
 async def test_retries_once_then_succeeds():
     client, generate = make_client([RuntimeError("503"), SimpleNamespace(text="ок")])
     assert await make_interpreter(client).interpret("сон") == "ок"

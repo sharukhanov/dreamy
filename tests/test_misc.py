@@ -1,7 +1,7 @@
 import pytest
 
 from bot.config import load_settings, parse_user_ids
-from bot.prompt import build_system_prompt, load_traditions
+from bot.prompt import build_system_prompt, create_prompt_builder, load_traditions
 from bot.safety import looks_like_crisis
 
 
@@ -39,18 +39,25 @@ def test_load_settings_requires_token(tmp_path, monkeypatch):
 
 def test_traditions_config_is_valid():
     traditions = load_traditions()
-    names = {t["name"] for section in traditions.values() for t in section}
-    assert {"Миллер", "Цветков", "Ванга", "Фрейд", "Юнг", "Холл"} <= names
+    names = {t["name"] for s in ("dream_books", "psychology") for t in traditions[s]}
+    assert {"Миллер", "Цветков", "Ванга", "Лофф", "Фрейд", "Юнг", "Холл", "Адлер"} <= names
+    assert traditions["pick"] == {"dream_books": 3, "psychology": 2}
 
 
-def test_system_prompt_contains_traditions_and_rules():
+def test_system_prompt_contains_rules_and_picked_traditions():
     prompt = build_system_prompt()
     assert "{{" not in prompt
-    for name in ("Миллер", "Цветков", "в традиции Ванги", "Фрейд", "Юнг", "Холл"):
-        assert name in prompt
+    books = prompt.split("Сонники:\n")[1].split("\n\n")[0].splitlines()
+    psych = prompt.split("Психологические подходы:\n")[1].split("\n\n")[0].splitlines()
+    assert len(books) == 3 and len(psych) == 2
     assert "цитат" in prompt
     assert "уточняющий вопрос" in prompt
     assert "кризис" in prompt
+
+
+def test_prompt_varies_between_dreams():
+    build = create_prompt_builder()
+    assert len({build() for _ in range(30)}) > 5
 
 
 def test_custom_traditions_file(tmp_path):

@@ -13,7 +13,7 @@ from aiogram.types import BotCommand
 from bot.config import PROJECT_ROOT, load_settings
 from bot.handlers import AccessMiddleware, create_router
 from bot.interpreter import GeminiInterpreter
-from bot.prompt import build_system_prompt
+from bot.prompt import create_prompt_builder
 from bot.storage import DreamStorage
 
 LOG_DIR = PROJECT_ROOT / "logs"
@@ -57,7 +57,7 @@ async def run() -> None:
         api_key=settings.gemini_api_key or "unset",
         model=settings.gemini_model,
         fallback_model=settings.gemini_fallback_model,
-        system_prompt=build_system_prompt(),
+        system_prompt=create_prompt_builder(),
     )
 
     bot = Bot(token=settings.telegram_token, session=make_session())

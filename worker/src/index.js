@@ -3,11 +3,11 @@ import promptTemplate from "../../prompts/interpreter.md";
 import traditionsYaml from "../../config/traditions.yaml";
 import { handleUpdate, parseAccess } from "./bot.js";
 import { GeminiInterpreter } from "./gemini.js";
-import { buildSystemPrompt } from "./prompt.js";
+import { createPromptBuilder } from "./prompt.js";
 import { D1Storage } from "./storage.js";
 import { Telegram } from "./telegram.js";
 
-const SYSTEM_PROMPT = buildSystemPrompt(promptTemplate, traditionsYaml);
+const buildPrompt = createPromptBuilder(promptTemplate, traditionsYaml);
 
 export default {
   async fetch(request, env) {
@@ -28,7 +28,7 @@ export default {
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
         fallbackModel: env.GEMINI_FALLBACK_MODEL,
-        systemPrompt: SYSTEM_PROMPT,
+        systemPrompt: buildPrompt,
       }),
       storage: new D1Storage(env.DB),
       access: parseAccess(env.ALLOWED_USER_IDS),

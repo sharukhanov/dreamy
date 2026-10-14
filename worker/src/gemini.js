@@ -9,6 +9,7 @@ export class GeminiInterpreter {
     this.apiKey = apiKey;
     // Первая попытка — основная модель, повтор — запасная (если задана).
     this.models = [model, fallbackModel || model];
+    // Строка или функция, которая возвращает промт (свежий набор традиций на каждый сон).
     this.systemPrompt = systemPrompt;
     this.fetch = fetchFn || ((...args) => fetch(...args));
     this.timeoutMs = timeoutMs;
@@ -16,11 +17,13 @@ export class GeminiInterpreter {
   }
 
   async interpret(dreamText) {
+    const systemPrompt =
+      typeof this.systemPrompt === "function" ? this.systemPrompt() : this.systemPrompt;
     let lastError;
     for (let i = 0; i < this.models.length; i++) {
       const model = this.models[i];
       try {
-        return await this.#call(model, dreamText);
+        return await this.#call(model, dreamText, systemPrompt);
       } catch (err) {
         lastError = err;
         console.warn(`Gemini (${model}): ошибка на попытке ${i + 1}/${this.models.length}: ${err.message}`);
@@ -32,7 +35,7 @@ export class GeminiInterpreter {
     throw new InterpreterError(lastError?.message || "unknown");
   }
 
-  async #call(model, dreamText) {
+  async #call(model, dreamText, systemPrompt) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), this.timeoutMs);
     try {
@@ -40,7 +43,7 @@ export class GeminiInterpreter {
         method: "POST",
         headers: { "content-type": "application/json", "x-goog-api-key": this.apiKey },
         body: JSON.stringify({
-          systemInstruction: { parts: [{ text: this.systemPrompt }] },
+          systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: dreamText }] }],
           generationConfig: {
             temperature: 0.8,

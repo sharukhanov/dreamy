@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Callable
 from typing import Protocol
 
 from google import genai
@@ -23,7 +24,7 @@ class GeminiInterpreter:
         self,
         api_key: str,
         model: str,
-        system_prompt: str,
+        system_prompt: str | Callable[[], str],
         fallback_model: str | None = None,
         client: genai.Client | None = None,
         retry_delay: float = 2.0,
@@ -40,8 +41,9 @@ class GeminiInterpreter:
         )
         # Первая попытка — основная модель, повтор — запасная (если задана).
         self._models = [model, fallback_model or model]
+        # Строка или функция (свежий набор традиций на каждый сон).
+        self._system_prompt = system_prompt
         self._config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
             temperature=0.8,
             max_output_tokens=4096,
             # Короткий ответ не требует долгих размышлений — так быстрее.
@@ -51,10 +53,12 @@ class GeminiInterpreter:
 
     async def interpret(self, dream_text: str) -> str:
         attempts = len(self._models)  # одна попытка + один повтор
+        prompt = self._system_prompt() if callable(self._system_prompt) else self._system_prompt
+        config = self._config.model_copy(update={"system_instruction": prompt})
         for attempt, model in enumerate(self._models, start=1):
             try:
                 response = await self._client.aio.models.generate_content(
-                    model=model, contents=dream_text, config=self._config
+                    model=model, contents=dream_text, config=config
                 )
                 text = (response.text or "").strip()
                 if not text:

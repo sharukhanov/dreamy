@@ -50,6 +50,24 @@ describe("Gemini", () => {
     await expect(g.interpret("сон")).rejects.toBeInstanceOf(InterpreterError);
   });
 
+  it("принимает промт-функцию и вызывает её на каждый сон", async () => {
+    let n = 0;
+    const calls = [];
+    const g = new GeminiInterpreter({
+      apiKey: "K",
+      model: "m",
+      systemPrompt: () => `SYS${++n}`,
+      fetchFn: async (url, init) => {
+        calls.push(JSON.parse(init.body).systemInstruction.parts[0].text);
+        return ok("x");
+      },
+      retryDelayMs: 0,
+    });
+    await g.interpret("a");
+    await g.interpret("b");
+    expect(calls).toEqual(["SYS1", "SYS2"]);
+  });
+
   it("пропускает «мысли» модели", async () => {
     const resp = {
       ok: true,
