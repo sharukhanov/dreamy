@@ -26,6 +26,7 @@ export const HELP =
   "\n" +
   "✍️ Опишите сон текстом — что происходило, кто был рядом, что вы чувствовали.\n" +
   "💡 Если сон связан с недавними событиями — допишите о них, толкование будет точнее.\n" +
+  "⚙️ /settings — настройки толкования: что показывать, какие сонники и психологи\n" +
   "🎛 /mode — что показывать: только сонники, только психологию или всё вместе\n" +
   "📖 /sonnik — выбрать до 3 сонников или оставить случайные\n" +
   "🧠 /psy — выбрать до 3 психологических подходов или оставить случайные\n" +
@@ -88,14 +89,28 @@ export const allSet = (mode, books, schools, maxBooks = 3, maxSchools = 3) =>
     .filter(Boolean)
     .join("\n") +
   "\n\nТеперь расскажите, что вам приснилось 🌙\n" +
-  "Поменять выбор можно кнопками под каждым толкованием или командами /mode, /sonnik и /psy.";
+  "Поменять выбор можно кнопкой «⚙️ Настроить толкование» под каждым ответом или командой /settings.";
 
 export const RANDOM_BOOKS_BUTTON = "🎲 Случайные каждый раз";
 export const RANDOM_SCHOOLS_BUTTON = "🎲 Случайные каждый раз";
 export const PICKER_DONE_BUTTON = "Готово 👍";
-export const CHANGE_MODE_BUTTON = "🎛 Режим";
-export const CHANGE_BOOKS_BUTTON = "📖 Сонники";
-export const CHANGE_SCHOOLS_BUTTON = "🧠 Психология";
+export const CHANGE_MODE_BUTTON = "🎛 Что показывать: сонники, психология или всё";
+export const CHANGE_BOOKS_BUTTON = "📖 Выбрать сонники";
+export const CHANGE_SCHOOLS_BUTTON = "🧠 Выбрать психологов";
+export const NEXT_DREAM_BUTTON = "🌙 Разобрать ещё один сон";
+export const SETTINGS_BUTTON = "⚙️ Настроить толкование";
+export const HISTORY_BUTTON = "📔 Мои сны";
+export const NEXT_DREAM = "✍️ Напишите следующий сон — я жду 🌙";
+export const settingsText = (mode, books, schools, maxBooks = 3, maxSchools = 3) =>
+  "⚙️ Ваши настройки толкования\n\n" +
+  [
+    modeLine(mode),
+    mode !== "psy" ? booksLine(books, maxBooks) : null,
+    mode !== "books" ? schoolsLine(schools, maxSchools) : null,
+  ]
+    .filter(Boolean)
+    .join("\n") +
+  "\n\nЧто поменять?";
 
 export const ONLY_TEXT = "🙈 Пока я понимаю только текст. Опишите, пожалуйста, сон словами — я внимательно прочитаю!";
 

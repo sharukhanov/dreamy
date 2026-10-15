@@ -4,7 +4,8 @@
 //   <bk|ps>:t:<номер>[:n]     — отметить/снять сонник или подход
 //   <bk|ps>:r[:n]             — «случайные»
 //   <bk|ps>:ok[:n]            — готово
-//   <md|bk|ps>:open           — открыть выбор (кнопки под толкованием)
+//   <md|bk|ps>:open           — открыть выбор (из меню настроек)
+//   st:open                   — меню настроек (кнопка под толкованием)
 // «:n» — первый запуск (/start): режим → сонники → психология, по очереди и только нужное.
 import * as texts from "./texts.js";
 import { MODES } from "./prompt.js";
@@ -27,12 +28,35 @@ export const KINDS = {
 const usesBooks = (mode) => mode !== "psy";
 const usesSchools = (mode) => mode !== "books";
 
-// Кнопки под толкованием: режим и только те выборы, которые нужны в этом режиме.
-export function resultMarkup(mode = "both") {
-  const row = [{ text: texts.CHANGE_MODE_BUTTON, callback_data: "md:open" }];
-  if (usesBooks(mode)) row.push({ text: texts.CHANGE_BOOKS_BUTTON, callback_data: "bk:open" });
-  if (usesSchools(mode)) row.push({ text: texts.CHANGE_SCHOOLS_BUTTON, callback_data: "ps:open" });
-  return { inline_keyboard: [row] };
+// Кнопки под толкованием: что делать дальше.
+export function resultMarkup() {
+  return {
+    inline_keyboard: [
+      [{ text: texts.NEXT_DREAM_BUTTON, callback_data: "nx:dream" }],
+      [
+        { text: texts.SETTINGS_BUTTON, callback_data: "st:open" },
+        { text: texts.HISTORY_BUTTON, callback_data: "nx:history" },
+      ],
+    ],
+  };
+}
+
+// Меню настроек: текущий выбор и кнопки, чтобы поменять только нужное в этом режиме.
+export function settingsMarkup(mode = "both") {
+  const rows = [[{ text: texts.CHANGE_MODE_BUTTON, callback_data: "md:open" }]];
+  if (usesBooks(mode)) rows.push([{ text: texts.CHANGE_BOOKS_BUTTON, callback_data: "bk:open" }]);
+  if (usesSchools(mode)) rows.push([{ text: texts.CHANGE_SCHOOLS_BUTTON, callback_data: "ps:open" }]);
+  return { inline_keyboard: rows };
+}
+
+export async function sendSettings(chatId, userId, deps) {
+  const { telegram, storage, choices } = deps;
+  const mode = await storage.getMode(userId);
+  const books = labelsOf(choices.bk.all, await storage.getChoice(userId, KINDS.bk.setting));
+  const schools = labelsOf(choices.ps.all, await storage.getChoice(userId, KINDS.ps.setting));
+  await telegram.sendMessage(chatId, texts.settingsText(mode, books, schools, choices.bk.max, choices.ps.max), {
+    reply_markup: settingsMarkup(mode),
+  });
 }
 
 export function modeKeyboard(current, onboarding = false) {
@@ -103,14 +127,19 @@ async function handleModeCallback(callback, deps, value, flag) {
     // Первый запуск: дальше спрашиваем только то, что нужно в выбранном режиме.
     await sendPicker(usesBooks(value) ? "bk" : "ps", chatId, userId, deps, true);
   } else {
-    // Смена режима из меню: показываем итог и предлагаем донастроить нужное.
-    await telegram.sendMessage(chatId, await summary(userId, deps), { reply_markup: resultMarkup(value) });
+    // Смена режима из меню: показываем настройки, чтобы можно было донастроить нужное.
+    await sendSettings(chatId, userId, deps);
   }
 }
 
 // Возвращает true, если callback относился к выбору.
 export async function handlePickerCallback(callback, deps) {
   const [kind, action, arg, flag] = String(callback.data || "").split(":");
+  if (kind === "st") {
+    await deps.telegram.answerCallbackQuery(callback.id);
+    if (callback.message?.chat?.id) await sendSettings(callback.message.chat.id, callback.from.id, deps);
+    return true;
+  }
   if (kind === "md") {
     await handleModeCallback(callback, deps, action, arg);
     return true;

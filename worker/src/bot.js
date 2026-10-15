@@ -2,7 +2,7 @@
 import * as texts from "./texts.js";
 import { applyMode, escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
 import { InterpreterError } from "./gemini.js";
-import { handlePickerCallback, resultMarkup, sendModePicker, sendPicker } from "./picker.js";
+import { handlePickerCallback, resultMarkup, sendModePicker, sendPicker, sendSettings } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
 import { formatStats, periodStarts } from "./stats.js";
 
@@ -10,6 +10,8 @@ const TELEGRAM_LIMIT = 4096;
 const FORGET_YES_DATA = "forget:yes";
 const FORGET_NO_DATA = "forget:no";
 const TYPING_INTERVAL_MS = 4500;
+const NEXT_DREAM_DATA = "nx:dream";
+const HISTORY_DATA = "nx:history";
 export function parseUserIds(raw) {
   const ids = new Set();
   for (const part of String(raw || "").split(/[,;]/)) {
@@ -84,6 +86,16 @@ async function handleCallback(callback, deps) {
   const messageId = callback.message?.message_id;
 
   if (await handlePickerCallback(callback, deps)) return;
+  if (callback.data === NEXT_DREAM_DATA) {
+    await telegram.answerCallbackQuery(callback.id);
+    if (chatId) await telegram.sendMessage(chatId, texts.NEXT_DREAM);
+    return;
+  }
+  if (callback.data === HISTORY_DATA) {
+    await telegram.answerCallbackQuery(callback.id);
+    if (chatId) await sendHistory(chatId, callback.from.id, deps);
+    return;
+  }
 
   if (callback.data === FORGET_YES_DATA) {
     const count = await storage.deleteAll(callback.from.id);
@@ -126,6 +138,9 @@ async function handleCommand(text, message, deps) {
     case "/mode":
       await sendModePicker(chatId, message.from.id, deps);
       break;
+    case "/settings":
+      await sendSettings(chatId, message.from.id, deps);
+      break;
     case "/sonnik":
       await sendPicker("bk", chatId, message.from.id, deps);
       break;
@@ -143,23 +158,9 @@ async function handleCommand(text, message, deps) {
         formatStats(await storage.stats(periodStarts(new Date(), timeZone), [...deps.access.ids]), deps.choices),
       );
       break;
-    case "/history": {
-      await storage.logEvent(message.from.id, "history");
-      const records = await storage.latest(message.from.id, 5);
-      if (!records.length) {
-        await telegram.sendMessage(chatId, texts.HISTORY_EMPTY);
-        break;
-      }
-      await telegram.sendMessage(chatId, texts.historyHeader(records.length));
-      for (const r of [...records].reverse()) {
-        const date = formatDate(r.created_at, timeZone);
-        const dream = cut(r.dream_text, 1000);
-        const html = texts.historyItemHtml(date, escapeHtml(dream), toTelegramHtml(r.interpretation));
-        const plain = texts.historyItem(date, dream, stripMarkup(r.interpretation));
-        await telegram.sendHtml(chatId, html, cut(plain, TELEGRAM_LIMIT));
-      }
+    case "/history":
+      await sendHistory(chatId, message.from.id, deps);
       break;
-    }
     case "/forget":
       await telegram.sendMessage(chatId, texts.FORGET_CONFIRM, {
         reply_markup: {
@@ -174,6 +175,23 @@ async function handleCommand(text, message, deps) {
       break;
     default:
       await telegram.sendMessage(chatId, texts.HELP);
+  }
+}
+
+async function sendHistory(chatId, userId, { telegram, storage, timeZone }) {
+  await storage.logEvent(userId, "history");
+  const records = await storage.latest(userId, 5);
+  if (!records.length) {
+    await telegram.sendMessage(chatId, texts.HISTORY_EMPTY);
+    return;
+  }
+  await telegram.sendMessage(chatId, texts.historyHeader(records.length));
+  for (const r of [...records].reverse()) {
+    const date = formatDate(r.created_at, timeZone);
+    const dream = cut(r.dream_text, 1000);
+    const html = texts.historyItemHtml(date, escapeHtml(dream), toTelegramHtml(r.interpretation));
+    const plain = texts.historyItem(date, dream, stripMarkup(r.interpretation));
+    await telegram.sendHtml(chatId, html, cut(plain, TELEGRAM_LIMIT));
   }
 }
 
@@ -229,6 +247,6 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   await storage.add(userId, text, interpretation);
   await storage.logEvent(userId, "dream_ok");
   await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT), {
-    reply_markup: resultMarkup(mode),
+    reply_markup: resultMarkup(),
   });
 }
