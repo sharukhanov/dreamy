@@ -34,3 +34,13 @@ export function toTelegramHtml(text) {
 export function stripMarkup(text) {
   return normalizeLayout(text).replace(/\*\*/g, "");
 }
+
+// Убирает блок, которого не должно быть в выбранном режиме (страховка поверх промта).
+export function applyMode(text, mode) {
+  const drop = mode === "books" ? "🧠" : mode === "psy" ? "📖" : null;
+  if (!drop) return text;
+  return text
+    .split(/\n{2,}/)
+    .filter((block) => !block.trimStart().startsWith(drop))
+    .join("\n\n");
+}

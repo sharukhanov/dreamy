@@ -63,8 +63,12 @@ def create_prompt_builder(
             )
             for section in ("dream_books", "psychology")
         }
-        return template.replace("{{DREAM_BOOKS}}", _format_section(picked["dream_books"])).replace(
-            "{{PSYCHOLOGY}}", _format_section(picked["psychology"])
+        return (
+            template.replace(
+                "{{MODE_RULES}}", "- В этом ответе есть оба блока: 📖 Сонники и 🧠 Психология."
+            )
+            .replace("{{DREAM_BOOKS}}", _format_section(picked["dream_books"]))
+            .replace("{{PSYCHOLOGY}}", _format_section(picked["psychology"]))
         )
 
     return build

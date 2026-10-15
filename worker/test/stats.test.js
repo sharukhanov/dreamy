@@ -30,7 +30,7 @@ describe("статистика", () => {
     const s = {
       usersTotal: 5, newToday: 1, newWeek: 3, activeToday: 2, activeWeek: 4, activeMonth: 5, returning: 2,
       dreamsToday: 3, dreamsWeek: 10, dreamsTotal: 20, failsToday: 0, failsWeek: 1, limitToday: 0, crisisWeek: 0,
-      choices: [{ dream_books: '["Миллер"]', psychology: "[]" }],
+      choices: [{ dream_books: '["Миллер"]', psychology: "[]", mode: "books" }],
     };
     const choices = { bk: { all: [{ name: "Миллер" }] }, ps: { all: [{ name: "Юнг" }] } };
     const r = formatStats(s, choices);
@@ -38,5 +38,6 @@ describe("статистика", () => {
     expect(r).toContain("в среднем 2.5 сна на человека");
     expect(r).toContain("• Миллер — 1");
     expect(r).toContain("• 🎲 случайные — 1");
+    expect(r).toContain("• 📖 только сонники — 1");
   });
 });

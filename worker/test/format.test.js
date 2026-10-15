@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeLayout, stripMarkup, toTelegramHtml } from "../src/format.js";
+import { applyMode, normalizeLayout, stripMarkup, toTelegramHtml } from "../src/format.js";
 
 describe("форматирование", () => {
   it("жирный текст и экранирование", () => {
@@ -33,6 +33,13 @@ describe("форматирование", () => {
   it("выравнивает совет для сна", () => {
     expect(normalizeLayout("😴 Совет для сна: спите 7–9 часов.")).toBe("😴 **Совет для сна** — спите 7–9 часов.");
     expect(normalizeLayout("😴 **Совет для сна** — уберите телефон.")).toBe("😴 **Совет для сна** — уберите телефон.");
+  });
+
+  it("applyMode убирает лишний блок", () => {
+    const t = "✨ М\n\n📖 **Сонники**\n• a\n\n🧠 **Психология**\n• b";
+    expect(applyMode(t, "books")).toBe("✨ М\n\n📖 **Сонники**\n• a");
+    expect(applyMode(t, "psy")).toBe("✨ М\n\n🧠 **Психология**\n• b");
+    expect(applyMode(t, "both")).toBe(t);
   });
 
   it("stripMarkup", () => {

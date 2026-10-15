@@ -1,8 +1,13 @@
-// Выбор сонников и психологических подходов кнопками.
-// callback_data: <вид>:t:<номер>[:n] — отметить/снять, <вид>:r[:n] — случайные,
-// <вид>:ok[:n] — готово, <вид>:open — открыть выбор. «:n» — первый запуск: после сонников
-// сразу предлагаем выбрать психологию.
+// Выбор режима, сонников и психологических подходов кнопками.
+// callback_data:
+//   md:<both|books|psy>[:n]   — режим
+//   <bk|ps>:t:<номер>[:n]     — отметить/снять сонник или подход
+//   <bk|ps>:r[:n]             — «случайные»
+//   <bk|ps>:ok[:n]            — готово
+//   <md|bk|ps>:open           — открыть выбор (кнопки под толкованием)
+// «:n» — первый запуск (/start): режим → сонники → психология, по очереди и только нужное.
 import * as texts from "./texts.js";
+import { MODES } from "./prompt.js";
 
 export const KINDS = {
   bk: {
@@ -19,14 +24,25 @@ export const KINDS = {
   },
 };
 
-export const RESULT_MARKUP = {
-  inline_keyboard: [
-    [
-      { text: texts.CHANGE_BOOKS_BUTTON, callback_data: "bk:open" },
-      { text: texts.CHANGE_SCHOOLS_BUTTON, callback_data: "ps:open" },
-    ],
-  ],
-};
+const usesBooks = (mode) => mode !== "psy";
+const usesSchools = (mode) => mode !== "books";
+
+// Кнопки под толкованием: режим и только те выборы, которые нужны в этом режиме.
+export function resultMarkup(mode = "both") {
+  const row = [{ text: texts.CHANGE_MODE_BUTTON, callback_data: "md:open" }];
+  if (usesBooks(mode)) row.push({ text: texts.CHANGE_BOOKS_BUTTON, callback_data: "bk:open" });
+  if (usesSchools(mode)) row.push({ text: texts.CHANGE_SCHOOLS_BUTTON, callback_data: "ps:open" });
+  return { inline_keyboard: [row] };
+}
+
+export function modeKeyboard(current, onboarding = false) {
+  const suffix = onboarding ? ":n" : "";
+  return {
+    inline_keyboard: MODES.map((m) => [
+      { text: `${m === current ? "✅ " : ""}${texts.MODE_BUTTONS[m]}`, callback_data: `md:${m}${suffix}` },
+    ]),
+  };
+}
 
 export function pickerKeyboard(kind, all, selected, onboarding = false) {
   const suffix = onboarding ? ":n" : "";
@@ -49,6 +65,11 @@ export function labelsOf(all, selected) {
   return all.filter((x) => selected.includes(x.name)).map((x) => x.label || x.name);
 }
 
+export async function sendModePicker(chatId, userId, { telegram, storage }, onboarding = false) {
+  const mode = await storage.getMode(userId);
+  await telegram.sendMessage(chatId, texts.CHOOSE_MODE, { reply_markup: modeKeyboard(mode, onboarding) });
+}
+
 export async function sendPicker(kind, chatId, userId, { telegram, storage, choices }, onboarding = false) {
   const { all, max } = choices[kind];
   const selected = await storage.getChoice(userId, KINDS[kind].setting);
@@ -57,9 +78,43 @@ export async function sendPicker(kind, chatId, userId, { telegram, storage, choi
   });
 }
 
+async function summary(userId, { storage, choices }) {
+  const mode = await storage.getMode(userId);
+  const books = labelsOf(choices.bk.all, await storage.getChoice(userId, KINDS.bk.setting));
+  const schools = labelsOf(choices.ps.all, await storage.getChoice(userId, KINDS.ps.setting));
+  return texts.allSet(mode, books, schools, choices.bk.max, choices.ps.max);
+}
+
+async function handleModeCallback(callback, deps, value, flag) {
+  const { telegram, storage } = deps;
+  const chatId = callback.message?.chat?.id;
+  const messageId = callback.message?.message_id;
+  const userId = callback.from.id;
+  await telegram.answerCallbackQuery(callback.id);
+  if (value === "open") {
+    if (chatId) await sendModePicker(chatId, userId, deps);
+    return;
+  }
+  if (!MODES.includes(value)) return;
+  await storage.setMode(userId, value);
+  if (!chatId) return;
+  await telegram.editMessageText(chatId, messageId, texts.modeLine(value));
+  if (flag === "n") {
+    // Первый запуск: дальше спрашиваем только то, что нужно в выбранном режиме.
+    await sendPicker(usesBooks(value) ? "bk" : "ps", chatId, userId, deps, true);
+  } else {
+    // Смена режима из меню: показываем итог и предлагаем донастроить нужное.
+    await telegram.sendMessage(chatId, await summary(userId, deps), { reply_markup: resultMarkup(value) });
+  }
+}
+
 // Возвращает true, если callback относился к выбору.
 export async function handlePickerCallback(callback, deps) {
   const [kind, action, arg, flag] = String(callback.data || "").split(":");
+  if (kind === "md") {
+    await handleModeCallback(callback, deps, action, arg);
+    return true;
+  }
   if (!KINDS[kind]) return false;
   const { telegram, storage, choices } = deps;
   const { all, max } = choices[kind];
@@ -105,15 +160,15 @@ export async function handlePickerCallback(callback, deps) {
   if (action === "ok") {
     await telegram.answerCallbackQuery(callback.id);
     if (!chatId) return true;
-    const books = labelsOf(choices.bk.all, await storage.getChoice(userId, KINDS.bk.setting));
-    const schools = labelsOf(choices.ps.all, await storage.getChoice(userId, KINDS.ps.setting));
-    if (kind === "bk" && onboarding) {
-      await telegram.editMessageText(chatId, messageId, texts.booksLine(books, choices.bk.max));
+    const selected = labelsOf(all, await storage.getChoice(userId, setting));
+    const line = kind === "bk" ? texts.booksLine(selected, max) : texts.schoolsLine(selected, max);
+    const mode = await storage.getMode(userId);
+    if (onboarding && kind === "bk" && usesSchools(mode)) {
+      await telegram.editMessageText(chatId, messageId, line);
       await sendPicker("ps", chatId, userId, deps, true);
-    } else if (kind === "ps" && onboarding) {
-      await telegram.editMessageText(chatId, messageId, texts.allSet(books, schools, choices.bk.max, choices.ps.max));
+    } else if (onboarding) {
+      await telegram.editMessageText(chatId, messageId, await summary(userId, deps));
     } else {
-      const line = kind === "bk" ? texts.booksLine(books, choices.bk.max) : texts.schoolsLine(schools, choices.ps.max);
       await telegram.editMessageText(chatId, messageId, texts.choiceSaved(line));
     }
     return true;

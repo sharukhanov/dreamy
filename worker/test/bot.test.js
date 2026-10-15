@@ -78,23 +78,59 @@ describe("выбор сонников и психологии", () => {
   };
   const keyboardOf = (d) => lastKeyboard(d).map((b) => b.text);
 
-  it("/start: приветствие, затем выбор сонников, затем выбор психологии", async () => {
+  it("/start: приветствие → режим → сонники → психология", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
-    expect(d.telegram.texts).toEqual([texts.START, texts.chooseBooks(3)]);
-    expect(lastKeyboard(d).at(-1).callback_data).toBe("bk:ok:n");
+    expect(d.telegram.texts).toEqual([texts.START, texts.CHOOSE_MODE]);
+    expect(lastKeyboard(d).map((b) => b.callback_data)).toEqual(["md:both:n", "md:books:n", "md:psy:n"]);
+    expect(keyboardOf(d)[0]).toBe(`✅ ${texts.MODE_BUTTONS.both}`);
 
+    await handleUpdate(callbackUpdate(OWNER_ID, "md:both:n"), d);
+    expect(d.telegram.texts.slice(-2)).toEqual([texts.modeLine("both"), texts.chooseBooks(3)]);
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0:n"), d);
-    expect(lastKeyboard(d).at(-1).callback_data).toBe("bk:ok:n");
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:ok:n"), d);
     expect(d.telegram.texts.slice(-2)).toEqual([texts.booksLine(["Миллер"]), texts.chooseSchools(3)]);
-
     await handleUpdate(callbackUpdate(OWNER_ID, "ps:t:1:n"), d);
     await handleUpdate(callbackUpdate(OWNER_ID, "ps:ok:n"), d);
-    expect(d.telegram.texts.at(-1)).toBe(texts.allSet(["Миллер"], ["Юнг"], 3, 3));
+    expect(d.telegram.texts.at(-1)).toBe(texts.allSet("both", ["Миллер"], ["Юнг"], 3, 3));
 
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: ["Миллер"], psychology: ["Юнг"] });
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: ["Миллер"], psychology: ["Юнг"], mode: "both" });
+  });
+
+  it("режим «только сонники»: психологию не спрашивает, блок 🧠 убирается", async () => {
+    const d = makeDeps();
+    await handleUpdate(callbackUpdate(OWNER_ID, "md:books:n"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.chooseBooks(3));
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:ok:n"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.allSet("books", [], [], 3, 3));
+    expect(d.telegram.texts.at(-1)).not.toContain("Психология");
+
+    d.interpreter.reply = "✨ **М**\n\n🏠 Ж\n\n📖 **Сонники**\n• **Миллер** — x\n\n🧠 **Психология**\n• **Юнг** — y";
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    const sent = d.telegram.calls.filter((c) => c.html).at(-1);
+    expect(sent.text).toContain("Сонники");
+    expect(sent.text).not.toContain("Психология");
+    expect(sent.extra.reply_markup.inline_keyboard[0].map((b) => b.callback_data)).toEqual(["md:open", "bk:open"]);
+    expect(d.interpreter.options.at(-1).mode).toBe("books");
+  });
+
+  it("режим «только психология»: сразу выбор подходов", async () => {
+    const d = makeDeps();
+    await handleUpdate(callbackUpdate(OWNER_ID, "md:psy:n"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.chooseSchools(3));
+    await handleUpdate(callbackUpdate(OWNER_ID, "ps:ok:n"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.allSet("psy", [], [], 3, 3));
+    expect(d.telegram.texts.at(-1)).not.toContain("📖 Сонники");
+  });
+
+  it("смена режима из меню показывает итог с нужными кнопками", async () => {
+    const d = makeDeps();
+    await handleUpdate(messageUpdate(OWNER_ID, "/mode"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.CHOOSE_MODE);
+    await handleUpdate(callbackUpdate(OWNER_ID, "md:psy"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.allSet("psy", [], [], 3, 3));
+    expect(lastKeyboard(d).map((b) => b.callback_data)).toEqual(["md:open", "ps:open"]);
   });
 
   it("/sonnik и /psy показывают кнопки, по умолчанию отмечены «Случайные»", async () => {
@@ -133,14 +169,18 @@ describe("выбор сонников и психологии", () => {
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0"), d);
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:r"), d);
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [], psychology: [] });
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [], psychology: [], mode: "both" });
   });
 
   it("под толкованием кнопки «Сонники» и «Психология»", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
     const sent = d.telegram.calls.find((c) => c.html);
-    expect(sent.extra.reply_markup.inline_keyboard[0].map((b) => b.callback_data)).toEqual(["bk:open", "ps:open"]);
+    expect(sent.extra.reply_markup.inline_keyboard[0].map((b) => b.callback_data)).toEqual([
+      "md:open",
+      "bk:open",
+      "ps:open",
+    ]);
     await handleUpdate(callbackUpdate(OWNER_ID, "ps:open"), d);
     expect(d.telegram.texts.at(-1)).toBe(texts.chooseSchools(3));
   });
@@ -235,14 +275,15 @@ describe("доступ", () => {
 });
 
 describe("команды", () => {
-  it("/start показывает приветствие и выбор сонников, /help — справку", async () => {
+  it("/start показывает приветствие и выбор режима, /help — справку", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
     await handleUpdate(messageUpdate(OWNER_ID, "/help"), d);
-    expect(d.telegram.texts).toEqual([texts.START, texts.chooseBooks(3), texts.HELP]);
+    expect(d.telegram.texts).toEqual([texts.START, texts.CHOOSE_MODE, texts.HELP]);
     expect(texts.HELP).toContain("не медицинский совет");
     expect(texts.HELP).toContain("/sonnik");
     expect(texts.HELP).toContain("/psy");
+    expect(texts.HELP).toContain("/mode");
   });
 
   it("/history пустой", async () => {

@@ -43,7 +43,16 @@ function choiceLines(title, { top, random }) {
   return `${title}\n${lines.length ? lines.join("\n") : "• пока никто не выбирал"}`;
 }
 
+const MODE_LABELS = { both: "✨ сонники + психология", books: "📖 только сонники", psy: "🧠 только психология" };
+
+export function countModes(rows) {
+  const counts = { both: 0, books: 0, psy: 0 };
+  for (const row of rows) counts[MODE_LABELS[row.mode] ? row.mode : "both"]++;
+  return counts;
+}
+
 export function formatStats(s, choices) {
+  const modes = countModes(s.choices);
   const perUser = s.activeWeek ? (s.dreamsWeek / s.activeWeek).toFixed(1) : "0";
   return [
     "📊 Статистика бота (без учёта вас)",
@@ -62,6 +71,9 @@ export function formatStats(s, choices) {
     `• модель недоступна: сегодня ${s.failsToday}, за 7 дней ${s.failsWeek}`,
     `• упёрлись в дневной лимит сегодня: ${s.limitToday}`,
     `• бережных ответов (признаки кризиса) за 7 дней: ${s.crisisWeek}`,
+    "",
+    "🎛 Режимы",
+    ...Object.entries(modes).map(([m, n]) => `• ${MODE_LABELS[m]} — ${n}`),
     "",
     choiceLines("📖 Выбор сонников", countChoices(s.choices, "dream_books", choices.bk.all)),
     "",

@@ -1,8 +1,8 @@
 // Логика бота: обработка одного апдейта Telegram. Тексты снов в логи не пишем.
 import * as texts from "./texts.js";
-import { escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
+import { applyMode, escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
 import { InterpreterError } from "./gemini.js";
-import { RESULT_MARKUP, handlePickerCallback, sendPicker } from "./picker.js";
+import { handlePickerCallback, resultMarkup, sendModePicker, sendPicker } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
 import { formatStats, periodStarts } from "./stats.js";
 
@@ -121,7 +121,10 @@ async function handleCommand(text, message, deps) {
     case "/start":
       await storage.logEvent(message.from.id, "start");
       await telegram.sendMessage(chatId, texts.START);
-      await sendPicker("bk", chatId, message.from.id, deps, true);
+      await sendModePicker(chatId, message.from.id, deps, true);
+      break;
+    case "/mode":
+      await sendModePicker(chatId, message.from.id, deps);
       break;
     case "/sonnik":
       await sendPicker("bk", chatId, message.from.id, deps);
@@ -209,9 +212,10 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   const typing = setInterval(() => telegram.sendTyping(chatId).catch(() => {}), TYPING_INTERVAL_MS);
   const dreamBooks = await storage.getChoice(userId, "dream_books");
   const psychology = await storage.getChoice(userId, "psychology");
+  const mode = await storage.getMode(userId);
   let interpretation;
   try {
-    interpretation = await interpreter.interpret(text, { dreamBooks, psychology });
+    interpretation = applyMode(await interpreter.interpret(text, { dreamBooks, psychology, mode }), mode);
   } catch (err) {
     if (!(err instanceof InterpreterError)) throw err;
     console.error(`Пользователь ${userId}: модель недоступна`);
@@ -225,6 +229,6 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   await storage.add(userId, text, interpretation);
   await storage.logEvent(userId, "dream_ok");
   await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT), {
-    reply_markup: RESULT_MARKUP,
+    reply_markup: resultMarkup(mode),
   });
 }

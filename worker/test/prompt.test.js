@@ -43,6 +43,17 @@ describe("промт", () => {
     expect(lines[0]).toContain("Адлер");
   });
 
+  it("режимы меняют правила и убирают ненужный список", () => {
+    const build = createPromptBuilder(template, yaml);
+    const books = build({ mode: "books" });
+    expect(books).toContain("только сонники");
+    expect(books.split("Психологические подходы:\n")[1]).toMatch(/^\(в этом режиме не используются\)/);
+    const psy = build({ mode: "psy" });
+    expect(psy).toContain("только психология");
+    expect(psy.split("Сонники:\n")[1]).toMatch(/^\(в этом режиме не используются\)/);
+    expect(build({}).includes("{{")).toBe(false);
+  });
+
   it("неизвестные сонники игнорируются, тогда берутся случайные", () => {
     const p = createPromptBuilder(template, yaml)({ dreamBooks: ["Несуществующий"] });
     expect(p.split("Сонники:\n")[1].split("\n\n")[0].split("\n")).toHaveLength(3);

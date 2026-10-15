@@ -86,6 +86,12 @@ export class MemoryStorage {
       choices: [],
     };
   }
+  async getMode(userId) {
+    return this.books.get(`${userId}:mode`) || "both";
+  }
+  async setMode(userId, mode) {
+    this.books.set(`${userId}:mode`, mode);
+  }
   async getChoice(userId, setting) {
     return this.books.get(`${userId}:${setting}`) || [];
   }

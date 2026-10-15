@@ -65,6 +65,21 @@ export class D1Storage {
       .run();
   }
 
+  async getMode(userId) {
+    const row = await this.db.prepare("SELECT mode FROM user_settings WHERE user_id = ?").bind(userId).first();
+    return row?.mode || "both";
+  }
+
+  async setMode(userId, mode) {
+    await this.db
+      .prepare(
+        "INSERT INTO user_settings (user_id, mode, updated_at) VALUES (?, ?, ?) " +
+          "ON CONFLICT(user_id) DO UPDATE SET mode = excluded.mode, updated_at = excluded.updated_at",
+      )
+      .bind(userId, mode, new Date().toISOString())
+      .run();
+  }
+
   // Событие для статистики: только тип (start, dream_ok, model_fail, limit_hit, crisis, …), без текста.
   async logEvent(userId, type) {
     try {
@@ -100,7 +115,7 @@ export class D1Storage {
       return row?.n ?? 0;
     };
     const settings = await this.db
-      .prepare(`SELECT dream_books, psychology FROM user_settings WHERE 1 = 1 ${ex}`)
+      .prepare(`SELECT dream_books, psychology, mode FROM user_settings WHERE 1 = 1 ${ex}`)
       .bind(...excludeIds)
       .all();
 

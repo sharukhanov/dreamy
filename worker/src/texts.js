@@ -9,20 +9,24 @@ export const START =
   "\n" +
   "✨ коротко скажу, о чём этот сон\n" +
   "🏠 подскажу, не связан ли он с событиями последних дней\n" +
-  "📖 расскажу, что говорят о нём сонники — те, что выберете вы\n" +
-  "🧠 и что думают о нём психологи — тоже на ваш выбор\n" +
+  "📖 расскажу, что говорят о нём сонники\n" +
+  "🧠 и что думают о нём психологи\n" +
   "📔 сохраню сон в ваш личный дневник\n" +
+  "\n" +
+  "🎛 Вы сами выбираете, что показывать: только сонники, только психологию или всё вместе — " +
+  "и какие именно.\n" +
   "\n" +
   "💡 Если сон перекликается с жизнью — допишите об этом. Например: «снилось море, а на " +
   "прошлой неделе я как раз вернулся из отпуска».\n" +
   "\n" +
-  "👇 Для начала выберите сонники и психологов — и присылайте сон.";
+  "👇 Начнём с выбора — а потом присылайте сон.";
 
 export const HELP =
   "🌙 Как мной пользоваться\n" +
   "\n" +
   "✍️ Опишите сон текстом — что происходило, кто был рядом, что вы чувствовали.\n" +
   "💡 Если сон связан с недавними событиями — допишите о них, толкование будет точнее.\n" +
+  "🎛 /mode — что показывать: только сонники, только психологию или всё вместе\n" +
   "📖 /sonnik — выбрать до 3 сонников или оставить случайные\n" +
   "🧠 /psy — выбрать до 3 психологических подходов или оставить случайные\n" +
   "📔 /history — ваши последние 5 снов\n" +
@@ -64,15 +68,32 @@ const listOrRandom = (labels, max) => (labels.length ? labels.join(", ") : `сл
 export const booksLine = (labels, max = 3) => `📖 Сонники: ${listOrRandom(labels, max)}`;
 export const schoolsLine = (labels, max = 3) => `🧠 Психология: ${listOrRandom(labels, max)}`;
 export const choiceSaved = (line) => `✅ Сохранил!\n\n${line}\n\nПрисылайте сон 🌙`;
-export const allSet = (books, schools, maxBooks = 3, maxSchools = 3) =>
+export const CHOOSE_MODE =
+  "🎛 Что вам интересно в толковании сна?\n\n" +
+  "📖 Сонники — что говорят Миллер, традиция Ванги, Нострадамус и другие\n" +
+  "🧠 Психология — что сон может говорить о ваших чувствах и заботах\n" +
+  "✨ И то и другое — полный расклад\n\n" +
+  "Поменять можно в любой момент командой /mode.";
+export const MODE_BUTTONS = { both: "✨ И то и другое", books: "📖 Только сонники", psy: "🧠 Только психология" };
+const MODE_NAMES = { both: "сонники и психология", books: "только сонники", psy: "только психология" };
+export const modeLine = (mode) => `🎛 Режим: ${MODE_NAMES[mode] || MODE_NAMES.both}`;
+
+export const allSet = (mode, books, schools, maxBooks = 3, maxSchools = 3) =>
   "✅ Готово!\n\n" +
-  `${booksLine(books, maxBooks)}\n${schoolsLine(schools, maxSchools)}\n\n` +
-  "Теперь расскажите, что вам приснилось 🌙\n" +
-  "Поменять выбор можно командами /sonnik и /psy или кнопками под каждым толкованием.";
+  [
+    modeLine(mode),
+    mode !== "psy" ? booksLine(books, maxBooks) : null,
+    mode !== "books" ? schoolsLine(schools, maxSchools) : null,
+  ]
+    .filter(Boolean)
+    .join("\n") +
+  "\n\nТеперь расскажите, что вам приснилось 🌙\n" +
+  "Поменять выбор можно кнопками под каждым толкованием или командами /mode, /sonnik и /psy.";
 
 export const RANDOM_BOOKS_BUTTON = "🎲 Случайные каждый раз";
 export const RANDOM_SCHOOLS_BUTTON = "🎲 Случайные каждый раз";
 export const PICKER_DONE_BUTTON = "Готово 👍";
+export const CHANGE_MODE_BUTTON = "🎛 Режим";
 export const CHANGE_BOOKS_BUTTON = "📖 Сонники";
 export const CHANGE_SCHOOLS_BUTTON = "🧠 Психология";
 

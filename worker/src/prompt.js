@@ -49,14 +49,33 @@ function chosenOrRandom(traditions, section, names, random) {
   return chosen.length ? chosen : pickRandom(traditions[section], traditions.pick[section], random);
 }
 
+// Режимы: both — сонники и психология, books — только сонники, psy — только психология.
+export const MODES = ["both", "books", "psy"];
+
+const MODE_RULES = {
+  both: "- В этом ответе есть оба блока: 📖 Сонники и 🧠 Психология.",
+  books:
+    "- Человек выбрал режим «только сонники»: блока 🧠 Психология в ответе НЕ должно быть совсем. " +
+    "Главная мысль — общий итог по сонникам. Строки сонников можно делать подробнее — до 25 слов.",
+  psy:
+    "- Человек выбрал режим «только психология»: блока 📖 Сонники в ответе НЕ должно быть совсем, " +
+    "не упоминай сонники и приметы. Главная мысль — общий итог по психологии. " +
+    "Строки психологии можно делать подробнее — до 25 слов.",
+};
+
 // Возвращает функцию, которая при каждом вызове собирает промт: выбранные человеком
-// сонники и психологические подходы, а если не выбраны — случайные.
+// сонники и психологические подходы (а если не выбраны — случайные) с учётом режима.
 export function createPromptBuilder(template, yamlText, random = Math.random) {
   const traditions = parseTraditions(yamlText);
-  return ({ dreamBooks, psychology } = {}) =>
-    template
-      .replace("{{DREAM_BOOKS}}", formatSection(chosenOrRandom(traditions, "dream_books", dreamBooks, random)))
-      .replace("{{PSYCHOLOGY}}", formatSection(chosenOrRandom(traditions, "psychology", psychology, random)));
+  return ({ dreamBooks, psychology, mode } = {}) => {
+    const m = MODES.includes(mode) ? mode : "both";
+    const books = m === "psy" ? "(в этом режиме не используются)" : formatSection(chosenOrRandom(traditions, "dream_books", dreamBooks, random));
+    const schools = m === "books" ? "(в этом режиме не используются)" : formatSection(chosenOrRandom(traditions, "psychology", psychology, random));
+    return template
+      .replace("{{MODE_RULES}}", MODE_RULES[m])
+      .replace("{{DREAM_BOOKS}}", books)
+      .replace("{{PSYCHOLOGY}}", schools);
+  };
 }
 
 export function buildSystemPrompt(template, yamlText, random = Math.random) {
