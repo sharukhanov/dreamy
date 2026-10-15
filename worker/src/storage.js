@@ -1,5 +1,8 @@
 // Дневник снов в Cloudflare D1 (SQLite).
 
+// Разрешённые настройки и их колонки (имя колонки подставляется в SQL, поэтому только из этого списка).
+const SETTINGS = { dream_books: "dream_books", psychology: "psychology" };
+
 export class D1Storage {
   constructor(db) {
     this.db = db;
@@ -40,20 +43,23 @@ export class D1Storage {
     return row?.n ?? 0;
   }
 
-  async getBooks(userId) {
-    const row = await this.db.prepare("SELECT dream_books FROM user_settings WHERE user_id = ?").bind(userId).first();
+  // setting: "dream_books" или "psychology" — список выбранных имён (пусто — случайные).
+  async getChoice(userId, setting) {
+    const column = SETTINGS[setting];
+    const row = await this.db.prepare(`SELECT ${column} AS v FROM user_settings WHERE user_id = ?`).bind(userId).first();
     try {
-      return row ? JSON.parse(row.dream_books) : [];
+      return row?.v ? JSON.parse(row.v) : [];
     } catch {
       return [];
     }
   }
 
-  async setBooks(userId, names) {
+  async setChoice(userId, setting, names) {
+    const column = SETTINGS[setting];
     await this.db
       .prepare(
-        "INSERT INTO user_settings (user_id, dream_books, updated_at) VALUES (?, ?, ?) " +
-          "ON CONFLICT(user_id) DO UPDATE SET dream_books = excluded.dream_books, updated_at = excluded.updated_at",
+        `INSERT INTO user_settings (user_id, ${column}, updated_at) VALUES (?, ?, ?) ` +
+          `ON CONFLICT(user_id) DO UPDATE SET ${column} = excluded.${column}, updated_at = excluded.updated_at`,
       )
       .bind(userId, JSON.stringify(names), new Date().toISOString())
       .run();

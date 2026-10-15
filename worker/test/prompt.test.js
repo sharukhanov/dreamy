@@ -36,6 +36,13 @@ describe("промт", () => {
     expect(books[1]).toContain("Лофф");
   });
 
+  it("выбранные психологические подходы попадают в промт", () => {
+    const p = createPromptBuilder(template, yaml)({ psychology: ["Адлер"] });
+    const lines = p.split("Психологические подходы:\n")[1].split("\n\n")[0].split("\n");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]).toContain("Адлер");
+  });
+
   it("неизвестные сонники игнорируются, тогда берутся случайные", () => {
     const p = createPromptBuilder(template, yaml)({ dreamBooks: ["Несуществующий"] });
     expect(p.split("Сонники:\n")[1].split("\n\n")[0].split("\n")).toHaveLength(3);

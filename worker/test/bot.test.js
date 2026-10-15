@@ -71,48 +71,60 @@ describe("сны", () => {
   });
 });
 
-describe("выбор сонников", () => {
-  const keyboardOf = (d) => {
+describe("выбор сонников и психологии", () => {
+  const lastKeyboard = (d) => {
     const c = [...d.telegram.calls].reverse().find((x) => x.extra?.reply_markup || x.replyMarkup);
-    return (c.replyMarkup || c.extra.reply_markup).inline_keyboard.flat().map((b) => b.text);
+    return (c.replyMarkup || c.extra.reply_markup).inline_keyboard.flat();
   };
+  const keyboardOf = (d) => lastKeyboard(d).map((b) => b.text);
 
-  it("/sonnik показывает кнопки, по умолчанию отмечены «Случайные»", async () => {
+  it("/start: приветствие, затем выбор сонников, затем выбор психологии", async () => {
     const d = makeDeps();
-    await handleUpdate(messageUpdate(OWNER_ID, "/sonnik"), d);
-    const buttons = keyboardOf(d);
-    expect(buttons).toContain("Миллер");
-    expect(buttons).toContain(`✅ ${texts.RANDOM_BOOKS_BUTTON}`);
+    await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
+    expect(d.telegram.texts).toEqual([texts.START, texts.chooseBooks(3)]);
+    expect(lastKeyboard(d).at(-1).callback_data).toBe("bk:ok:n");
+
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0:n"), d);
+    expect(lastKeyboard(d).at(-1).callback_data).toBe("bk:ok:n");
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:ok:n"), d);
+    expect(d.telegram.texts.slice(-2)).toEqual([texts.booksLine(["Миллер"]), texts.chooseSchools(3)]);
+
+    await handleUpdate(callbackUpdate(OWNER_ID, "ps:t:1:n"), d);
+    await handleUpdate(callbackUpdate(OWNER_ID, "ps:ok:n"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.allSet(["Миллер"], ["Юнг"], 3, 3));
+
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: ["Миллер"], psychology: ["Юнг"] });
   });
 
-  it("отмечает сонники и толкует по ним", async () => {
+  it("/sonnik и /psy показывают кнопки, по умолчанию отмечены «Случайные»", async () => {
+    const d = makeDeps();
+    await handleUpdate(messageUpdate(OWNER_ID, "/sonnik"), d);
+    expect(keyboardOf(d)).toContain("Миллер");
+    expect(keyboardOf(d)).toContain(`✅ ${texts.RANDOM_BOOKS_BUTTON}`);
+    await handleUpdate(messageUpdate(OWNER_ID, "/psy"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.chooseSchools(3));
+    expect(keyboardOf(d)).toContain("Юнг");
+  });
+
+  it("отмечает и снимает отметку, готово без онбординга сохраняет выбор", async () => {
     const d = makeDeps();
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0"), d);
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:3"), d);
-    expect(await d.storage.getBooks(OWNER_ID)).toEqual(["Миллер", "Лофф"]);
+    expect(await d.storage.getChoice(OWNER_ID, "dream_books")).toEqual(["Миллер", "Лофф"]);
     expect(keyboardOf(d)).toContain("✅ Лофф");
-    expect(keyboardOf(d)).toContain(texts.RANDOM_BOOKS_BUTTON);
-
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:3"), d);
+    expect(await d.storage.getChoice(OWNER_ID, "dream_books")).toEqual(["Миллер"]);
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:ok"), d);
-    expect(d.telegram.texts.at(-1)).toBe(texts.booksChosen(["Миллер", "Лофф"], 3));
-
-    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: ["Миллер", "Лофф"] });
+    expect(d.telegram.texts.at(-1)).toBe(texts.choiceSaved(texts.booksLine(["Миллер"])));
   });
 
-  it("повторное нажатие снимает отметку", async () => {
+  it("не больше трёх", async () => {
     const d = makeDeps();
-    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:1"), d);
-    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:1"), d);
-    expect(await d.storage.getBooks(OWNER_ID)).toEqual([]);
-  });
-
-  it("не больше трёх сонников", async () => {
-    const d = makeDeps();
-    for (const i of [0, 1, 2, 3]) await handleUpdate(callbackUpdate(OWNER_ID, `bk:t:${i}`), d);
-    expect(await d.storage.getBooks(OWNER_ID)).toHaveLength(3);
+    for (const i of [0, 1, 2, 3]) await handleUpdate(callbackUpdate(OWNER_ID, `ps:t:${i}`), d);
+    expect(await d.storage.getChoice(OWNER_ID, "psychology")).toHaveLength(3);
     const alert = d.telegram.calls.filter((c) => c.method === "answerCallbackQuery").at(-1);
-    expect(alert.text).toBe(texts.tooManyBooks(3));
+    expect(alert.text).toBe(texts.tooManySchools(3));
     expect(alert.showAlert).toBe(true);
   });
 
@@ -120,18 +132,17 @@ describe("выбор сонников", () => {
     const d = makeDeps();
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0"), d);
     await handleUpdate(callbackUpdate(OWNER_ID, "bk:r"), d);
-    expect(await d.storage.getBooks(OWNER_ID)).toEqual([]);
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [] });
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [], psychology: [] });
   });
 
-  it("под толкованием есть кнопка «Сменить сонники», она открывает выбор", async () => {
+  it("под толкованием кнопки «Сонники» и «Психология»", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
     const sent = d.telegram.calls.find((c) => c.html);
-    expect(sent.extra.reply_markup.inline_keyboard[0][0].text).toBe(texts.CHANGE_BOOKS_BUTTON);
-    await handleUpdate(callbackUpdate(OWNER_ID, "bk:open"), d);
-    expect(d.telegram.texts.at(-1)).toBe(texts.chooseBooks(3));
+    expect(sent.extra.reply_markup.inline_keyboard[0].map((b) => b.callback_data)).toEqual(["bk:open", "ps:open"]);
+    await handleUpdate(callbackUpdate(OWNER_ID, "ps:open"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.chooseSchools(3));
   });
 });
 
@@ -204,6 +215,7 @@ describe("команды", () => {
     expect(d.telegram.texts).toEqual([texts.START, texts.chooseBooks(3), texts.HELP]);
     expect(texts.HELP).toContain("не медицинский совет");
     expect(texts.HELP).toContain("/sonnik");
+    expect(texts.HELP).toContain("/psy");
   });
 
   it("/history пустой", async () => {

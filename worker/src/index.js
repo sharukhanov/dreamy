@@ -9,7 +9,10 @@ import { Telegram } from "./telegram.js";
 
 const buildPrompt = createPromptBuilder(promptTemplate, traditionsYaml);
 const TRADITIONS = parseTraditions(traditionsYaml);
-const BOOKS = { all: TRADITIONS.dream_books, max: TRADITIONS.pick.dream_books };
+const CHOICES = {
+  bk: { all: TRADITIONS.dream_books, max: TRADITIONS.pick.dream_books },
+  ps: { all: TRADITIONS.psychology, max: TRADITIONS.pick.psychology },
+};
 
 export default {
   async fetch(request, env) {
@@ -36,7 +39,7 @@ export default {
       access: parseAccess(env.ALLOWED_USER_IDS),
       dailyLimit: Number(env.DAILY_LIMIT ?? 10),
       timeZone: env.TIME_ZONE || "Europe/Moscow",
-      books: BOOKS,
+      choices: CHOICES,
     };
 
     try {

@@ -2,46 +2,13 @@
 import * as texts from "./texts.js";
 import { escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
 import { InterpreterError } from "./gemini.js";
+import { RESULT_MARKUP, handlePickerCallback, sendPicker } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
 
 const TELEGRAM_LIMIT = 4096;
 const FORGET_YES_DATA = "forget:yes";
 const FORGET_NO_DATA = "forget:no";
 const TYPING_INTERVAL_MS = 4500;
-// Кнопки выбора сонников: bk:t:<номер> — отметить/снять, bk:r — случайные, bk:ok — готово, bk:open — открыть выбор.
-const BOOK_TOGGLE = "bk:t:";
-const BOOK_RANDOM = "bk:r";
-const BOOK_DONE = "bk:ok";
-const BOOK_OPEN = "bk:open";
-const CHANGE_BOOKS_MARKUP = {
-  inline_keyboard: [[{ text: texts.CHANGE_BOOKS_BUTTON, callback_data: BOOK_OPEN }]],
-};
-
-export function bookKeyboard(allBooks, selected) {
-  const chosen = new Set(selected);
-  const rows = [];
-  allBooks.forEach((book, i) => {
-    const text = `${chosen.has(book.name) ? "✅ " : ""}${book.button || book.label || book.name}`;
-    const button = { text, callback_data: `${BOOK_TOGGLE}${i}` };
-    if (i % 2 === 0) rows.push([button]);
-    else rows[rows.length - 1].push(button);
-  });
-  rows.push([{ text: `${chosen.size ? "" : "✅ "}${texts.RANDOM_BOOKS_BUTTON}`, callback_data: BOOK_RANDOM }]);
-  rows.push([{ text: texts.BOOKS_DONE_BUTTON, callback_data: BOOK_DONE }]);
-  return { inline_keyboard: rows };
-}
-
-function chosenLabels(allBooks, selected) {
-  return allBooks.filter((b) => selected.includes(b.name)).map((b) => b.label || b.name);
-}
-
-async function sendBookPicker(chatId, userId, { telegram, storage, books }) {
-  const selected = await storage.getBooks(userId);
-  await telegram.sendMessage(chatId, texts.chooseBooks(books.max), {
-    reply_markup: bookKeyboard(books.all, selected),
-  });
-}
-
 export function parseUserIds(raw) {
   const ids = new Set();
   for (const part of String(raw || "").split(/[,;]/)) {
@@ -76,7 +43,7 @@ function formatDate(iso, timeZone) {
 }
 
 // deps: { telegram, interpreter, storage, access: {isPublic, ids}, dailyLimit, timeZone,
-//         books: { all: [{name, label, button}], max } }
+//         choices: { bk: {all, max}, ps: {all, max} } }
 export async function handleUpdate(update, deps) {
   const { telegram, storage, access } = deps;
   if (typeof update.update_id === "number" && !(await storage.markUpdate(update.update_id))) {
@@ -111,47 +78,11 @@ export async function handleUpdate(update, deps) {
 }
 
 async function handleCallback(callback, deps) {
-  const { telegram, storage, books } = deps;
+  const { telegram, storage } = deps;
   const chatId = callback.message?.chat?.id;
   const messageId = callback.message?.message_id;
-  const userId = callback.from.id;
-  const data = callback.data || "";
 
-  if (data.startsWith(BOOK_TOGGLE)) {
-    const book = books.all[Number(data.slice(BOOK_TOGGLE.length))];
-    if (!book) return telegram.answerCallbackQuery(callback.id);
-    let selected = await storage.getBooks(userId);
-    if (selected.includes(book.name)) {
-      selected = selected.filter((n) => n !== book.name);
-    } else if (selected.length >= books.max) {
-      return telegram.answerCallbackQuery(callback.id, texts.tooManyBooks(books.max), true);
-    } else {
-      selected = [...selected, book.name];
-    }
-    await storage.setBooks(userId, selected);
-    await telegram.answerCallbackQuery(callback.id);
-    if (chatId) await telegram.editMessageReplyMarkup(chatId, messageId, bookKeyboard(books.all, selected));
-    return;
-  }
-  if (data === BOOK_RANDOM) {
-    await storage.setBooks(userId, []);
-    await telegram.answerCallbackQuery(callback.id);
-    if (chatId) await telegram.editMessageReplyMarkup(chatId, messageId, bookKeyboard(books.all, []));
-    return;
-  }
-  if (data === BOOK_DONE) {
-    const selected = await storage.getBooks(userId);
-    await telegram.answerCallbackQuery(callback.id);
-    if (chatId) {
-      await telegram.editMessageText(chatId, messageId, texts.booksChosen(chosenLabels(books.all, selected), books.max));
-    }
-    return;
-  }
-  if (data === BOOK_OPEN) {
-    await telegram.answerCallbackQuery(callback.id);
-    if (chatId) await sendBookPicker(chatId, userId, deps);
-    return;
-  }
+  if (await handlePickerCallback(callback, deps)) return;
 
   if (callback.data === FORGET_YES_DATA) {
     const count = await storage.deleteAll(callback.from.id);
@@ -186,10 +117,13 @@ async function handleCommand(text, message, deps) {
   switch (command) {
     case "/start":
       await telegram.sendMessage(chatId, texts.START);
-      await sendBookPicker(chatId, message.from.id, deps);
+      await sendPicker("bk", chatId, message.from.id, deps, true);
       break;
     case "/sonnik":
-      await sendBookPicker(chatId, message.from.id, deps);
+      await sendPicker("bk", chatId, message.from.id, deps);
+      break;
+    case "/psy":
+      await sendPicker("ps", chatId, message.from.id, deps);
       break;
     case "/history": {
       const records = await storage.latest(message.from.id, 5);
@@ -254,10 +188,11 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   console.log(`Пользователь ${userId}: толкование сна (${text.length} символов)`);
   await telegram.sendTyping(chatId);
   const typing = setInterval(() => telegram.sendTyping(chatId).catch(() => {}), TYPING_INTERVAL_MS);
-  const dreamBooks = await storage.getBooks(userId);
+  const dreamBooks = await storage.getChoice(userId, "dream_books");
+  const psychology = await storage.getChoice(userId, "psychology");
   let interpretation;
   try {
-    interpretation = await interpreter.interpret(text, { dreamBooks });
+    interpretation = await interpreter.interpret(text, { dreamBooks, psychology });
   } catch (err) {
     if (!(err instanceof InterpreterError)) throw err;
     console.error(`Пользователь ${userId}: модель недоступна`);
@@ -269,6 +204,6 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
 
   await storage.add(userId, text, interpretation);
   await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT), {
-    reply_markup: CHANGE_BOOKS_MARKUP,
+    reply_markup: RESULT_MARKUP,
   });
 }

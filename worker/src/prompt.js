@@ -42,26 +42,21 @@ function formatSection(items) {
     .join("\n");
 }
 
-// Сонники, выбранные человеком (по имени, не больше лимита); пусто — значит случайные.
-export function chosenBooks(traditions, names) {
+// Традиции, выбранные человеком (по имени, не больше лимита); пусто — значит случайные.
+function chosenOrRandom(traditions, section, names, random) {
   const wanted = new Set(names || []);
-  return traditions.dream_books.filter((b) => wanted.has(b.name)).slice(0, traditions.pick.dream_books);
+  const chosen = traditions[section].filter((b) => wanted.has(b.name)).slice(0, traditions.pick[section]);
+  return chosen.length ? chosen : pickRandom(traditions[section], traditions.pick[section], random);
 }
 
-// Возвращает функцию, которая при каждом вызове собирает промт: выбранные сонники
-// (если человек их выбрал) или случайные, а психологические подходы — всегда случайные.
+// Возвращает функцию, которая при каждом вызове собирает промт: выбранные человеком
+// сонники и психологические подходы, а если не выбраны — случайные.
 export function createPromptBuilder(template, yamlText, random = Math.random) {
   const traditions = parseTraditions(yamlText);
-  return ({ dreamBooks } = {}) => {
-    const chosen = chosenBooks(traditions, dreamBooks);
-    const books = chosen.length ? chosen : pickRandom(traditions.dream_books, traditions.pick.dream_books, random);
-    return template
-      .replace("{{DREAM_BOOKS}}", formatSection(books))
-      .replace(
-        "{{PSYCHOLOGY}}",
-        formatSection(pickRandom(traditions.psychology, traditions.pick.psychology, random)),
-      );
-  };
+  return ({ dreamBooks, psychology } = {}) =>
+    template
+      .replace("{{DREAM_BOOKS}}", formatSection(chosenOrRandom(traditions, "dream_books", dreamBooks, random)))
+      .replace("{{PSYCHOLOGY}}", formatSection(chosenOrRandom(traditions, "psychology", psychology, random)));
 }
 
 export function buildSystemPrompt(template, yamlText, random = Math.random) {

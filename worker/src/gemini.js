@@ -16,7 +16,7 @@ export class GeminiInterpreter {
     this.retryDelayMs = retryDelayMs;
   }
 
-  // options: { dreamBooks: [имена сонников] } — пусто, значит случайные.
+  // options: { dreamBooks, psychology } — выбранные имена; пусто — значит случайные.
   async interpret(dreamText, options = {}) {
     const systemPrompt =
       typeof this.systemPrompt === "function" ? this.systemPrompt(options) : this.systemPrompt;

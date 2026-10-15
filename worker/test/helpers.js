@@ -2,6 +2,7 @@ import { InterpreterError } from "../src/gemini.js";
 
 export const OWNER_ID = 111;
 export const STRANGER_ID = 999;
+export const SCHOOLS = ["Фрейд", "Юнг", "Холл", "Перлз"].map((name) => ({ name, label: name, button: name }));
 export const BOOKS = ["Миллер", "Цветков", "Ванга", "Лофф", "Нострадамус"].map((name) => ({
   name,
   label: name,
@@ -59,11 +60,11 @@ export class MemoryStorage {
   async latest(userId, limit = 5) {
     return this.rows.filter((r) => r.user_id === userId).sort((a, b) => b.id - a.id).slice(0, limit);
   }
-  async getBooks(userId) {
-    return this.books.get(userId) || [];
+  async getChoice(userId, setting) {
+    return this.books.get(`${userId}:${setting}`) || [];
   }
-  async setBooks(userId, names) {
-    this.books.set(userId, names);
+  async setChoice(userId, setting, names) {
+    this.books.set(`${userId}:${setting}`, names);
   }
   async countSince(userId, sinceIso) {
     return this.rows.filter((r) => r.user_id === userId && r.created_at >= sinceIso).length;
@@ -125,6 +126,6 @@ export function makeDeps(allowed = [OWNER_ID], { isPublic = false, dailyLimit = 
     interpreter: new FakeInterpreter(),
     storage: new MemoryStorage(),
     timeZone: "Europe/Moscow",
-    books: { all: BOOKS, max: 3 },
+    choices: { bk: { all: BOOKS, max: 3 }, ps: { all: SCHOOLS, max: 3 } },
   };
 }
