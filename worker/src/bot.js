@@ -4,6 +4,7 @@ import { escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
 import { InterpreterError } from "./gemini.js";
 import { RESULT_MARKUP, handlePickerCallback, sendPicker } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
+import { formatStats, periodStarts } from "./stats.js";
 
 const TELEGRAM_LIMIT = 4096;
 const FORGET_YES_DATA = "forget:yes";
@@ -86,6 +87,7 @@ async function handleCallback(callback, deps) {
 
   if (callback.data === FORGET_YES_DATA) {
     const count = await storage.deleteAll(callback.from.id);
+    await storage.logEvent(callback.from.id, "forget");
     console.log(`Пользователь ${callback.from.id} удалил дневник (${count} записей)`);
     await telegram.answerCallbackQuery(callback.id);
     if (chatId) await telegram.editMessageText(chatId, messageId, texts.forgetDone(count));
@@ -102,6 +104,7 @@ async function handleMessage(message, deps) {
   const chatId = message.chat.id;
 
   if (typeof message.text !== "string") {
+    await deps.storage.logEvent(message.from.id, "non_text");
     await telegram.sendMessage(chatId, texts.ONLY_TEXT);
     return;
   }
@@ -116,6 +119,7 @@ async function handleCommand(text, message, deps) {
   const command = text.split(/\s/)[0].split("@")[0].toLowerCase();
   switch (command) {
     case "/start":
+      await storage.logEvent(message.from.id, "start");
       await telegram.sendMessage(chatId, texts.START);
       await sendPicker("bk", chatId, message.from.id, deps, true);
       break;
@@ -125,7 +129,19 @@ async function handleCommand(text, message, deps) {
     case "/psy":
       await sendPicker("ps", chatId, message.from.id, deps);
       break;
+    case "/stats":
+      // Статистика — только для владельцев (id из ALLOWED_USER_IDS), остальным обычная справка.
+      if (!deps.access.ids.has(message.from.id)) {
+        await telegram.sendMessage(chatId, texts.HELP);
+        break;
+      }
+      await telegram.sendMessage(
+        chatId,
+        formatStats(await storage.stats(periodStarts(new Date(), timeZone), [...deps.access.ids]), deps.choices),
+      );
+      break;
     case "/history": {
+      await storage.logEvent(message.from.id, "history");
       const records = await storage.latest(message.from.id, 5);
       if (!records.length) {
         await telegram.sendMessage(chatId, texts.HISTORY_EMPTY);
@@ -163,6 +179,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   const userId = message.from.id;
 
   if (text.length > texts.MAX_DREAM_LENGTH) {
+    await storage.logEvent(userId, "too_long");
     await telegram.sendMessage(chatId, texts.tooLong(text.length));
     return;
   }
@@ -172,6 +189,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   }
   if (looksLikeCrisis(text)) {
     console.log(`Пользователь ${userId}: сработала кризисная проверка`);
+    await storage.logEvent(userId, "crisis");
     await telegram.sendMessage(chatId, texts.CRISIS_REPLY);
     return;
   }
@@ -180,6 +198,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     if ((await storage.countSince(userId, since)) >= dailyLimit) {
       console.log(`Пользователь ${userId}: достигнут дневной лимит`);
+      await storage.logEvent(userId, "limit_hit");
       await telegram.sendMessage(chatId, texts.dailyLimit(dailyLimit));
       return;
     }
@@ -196,6 +215,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   } catch (err) {
     if (!(err instanceof InterpreterError)) throw err;
     console.error(`Пользователь ${userId}: модель недоступна`);
+    await storage.logEvent(userId, "model_fail");
     await telegram.sendMessage(chatId, texts.API_ERROR);
     return;
   } finally {
@@ -203,6 +223,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
   }
 
   await storage.add(userId, text, interpretation);
+  await storage.logEvent(userId, "dream_ok");
   await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT), {
     reply_markup: RESULT_MARKUP,
   });

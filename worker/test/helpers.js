@@ -40,6 +40,7 @@ export class MemoryStorage {
   constructor() {
     this.rows = [];
     this.books = new Map();
+    this.events = [];
     this.seen = new Set();
     this.nextId = 1;
   }
@@ -59,6 +60,31 @@ export class MemoryStorage {
   }
   async latest(userId, limit = 5) {
     return this.rows.filter((r) => r.user_id === userId).sort((a, b) => b.id - a.id).slice(0, limit);
+  }
+  async logEvent(userId, type) {
+    this.events.push({ userId, type });
+  }
+  async stats(since, excludeIds) {
+    this.statsCall = { since, excludeIds };
+    const others = this.events.filter((e) => !excludeIds.includes(e.userId));
+    const dreams = others.filter((e) => e.type === "dream_ok");
+    return {
+      usersTotal: new Set(others.map((e) => e.userId)).size,
+      newToday: 0,
+      newWeek: 0,
+      activeToday: new Set(dreams.map((e) => e.userId)).size,
+      activeWeek: new Set(dreams.map((e) => e.userId)).size,
+      activeMonth: new Set(dreams.map((e) => e.userId)).size,
+      returning: 0,
+      dreamsToday: dreams.length,
+      dreamsWeek: dreams.length,
+      dreamsTotal: dreams.length,
+      failsToday: others.filter((e) => e.type === "model_fail").length,
+      failsWeek: 0,
+      limitToday: 0,
+      crisisWeek: 0,
+      choices: [],
+    };
   }
   async getChoice(userId, setting) {
     return this.books.get(`${userId}:${setting}`) || [];

@@ -146,6 +146,33 @@ describe("выбор сонников и психологии", () => {
   });
 });
 
+describe("статистика", () => {
+  it("записывает события без текстов и показывает /stats владельцу без его собственных событий", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true });
+    await handleUpdate(messageUpdate(STRANGER_ID, "/start"), d);
+    await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    d.interpreter.fail = true;
+    await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
+    expect(d.storage.events.map((e) => e.type)).toEqual(["start", "dream_ok", "dream_ok", "model_fail"]);
+    expect(JSON.stringify(d.storage.events)).not.toContain("башни");
+
+    await handleUpdate(messageUpdate(OWNER_ID, "/stats"), d);
+    const report = d.telegram.texts.at(-1);
+    expect(report).toContain("📊 Статистика бота");
+    expect(report).toContain("• всего: 1");
+    expect(report).toContain("сегодня 1, за 7 дней 1, всего 1");
+    expect(report).toContain("модель недоступна: сегодня 1");
+    expect(d.storage.statsCall.excludeIds).toEqual([OWNER_ID]);
+  });
+
+  it("чужим /stats не показывается", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true });
+    await handleUpdate(messageUpdate(STRANGER_ID, "/stats"), d);
+    expect(d.telegram.texts).toEqual([texts.HELP]);
+  });
+});
+
 describe("доступ", () => {
   it("отказывает чужим", async () => {
     const d = makeDeps();
