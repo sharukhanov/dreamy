@@ -128,7 +128,7 @@ async def test_stranger_cannot_forget(harness):
 async def test_bold_main_thought_is_html(harness):
     harness.interpreter.reply = "✨ **Главное** <x>"
     replies = await harness.send(make_message_update(OWNER_ID, DREAM))
-    assert replies == ["✨ <b>Главное</b> &lt;x&gt;"]
+    assert replies == ["✨ Если коротко: <b>Главное</b> &lt;x&gt;"]
 
 
 def test_layout_is_normalized():
@@ -139,7 +139,7 @@ def test_layout_is_normalized():
         "📖 Сонники\n\n🧠 **Психология:**"
     )
     assert to_telegram_html(raw) == (
-        "✨ <b>Мысль</b>\n\n🏠 Так мозг дожёвывает стресс.\n\n"
+        "✨ Если коротко: <b>Мысль</b>\n\n🏠 Так мозг дожёвывает стресс.\n\n"
         "📖 <b>Сонники</b>\n\n🧠 <b>Психология</b>"
     )
 
@@ -149,5 +149,5 @@ def test_missing_house_emoji_is_added():
 
     assert (
         normalize_layout("✨ М\n\nВозможно, стресс.\n\n📖 x")
-        == "✨ М\n\n🏠 Возможно, стресс.\n\n📖 x"
+        == "✨ Если коротко: М\n\n🏠 Возможно, стресс.\n\n📖 x"
     )

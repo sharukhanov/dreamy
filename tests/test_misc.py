@@ -41,7 +41,7 @@ def test_traditions_config_is_valid():
     traditions = load_traditions()
     names = {t["name"] for s in ("dream_books", "psychology") for t in traditions[s]}
     assert {"Миллер", "Цветков", "Ванга", "Лофф", "Фрейд", "Юнг", "Холл", "Адлер"} <= names
-    assert traditions["pick"] == {"dream_books": 3, "psychology": 2}
+    assert traditions["pick"] == {"dream_books": 3, "psychology": 3}
 
 
 def test_system_prompt_contains_rules_and_picked_traditions():
@@ -49,7 +49,7 @@ def test_system_prompt_contains_rules_and_picked_traditions():
     assert "{{" not in prompt
     books = prompt.split("Сонники:\n")[1].split("\n\n")[0].splitlines()
     psych = prompt.split("Психологические подходы:\n")[1].split("\n\n")[0].splitlines()
-    assert len(books) == 3 and len(psych) == 2
+    assert len(books) == 3 and len(psych) == 3
     assert "цитат" in prompt
     assert "уточняющий вопрос" in prompt
     assert "кризис" in prompt

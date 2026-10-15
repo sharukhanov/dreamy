@@ -13,6 +13,9 @@ export function normalizeLayout(text) {
     text = blocks.join("\n\n");
   }
   return text
+    // Главная мысль — общий итог; подписываем её «Если коротко:», убирая подписи модели.
+    .replace(/^✨[ \t*]*(?:Если коротко|Коротко|Главная мысль|Суть сна|Суть)[ \t*]*[:—–-][ \t*]*/imu, "✨ ")
+    .replace(/^✨[ \t]*(\S)/mu, "✨ Если коротко: $1")
     .replace(/^📖[ \t*]*Сонники[ \t*:]*$/gmu, "📖 **Сонники**")
     .replace(/^🧠[ \t*]*Психология[ \t*:]*$/gmu, "🧠 **Психология**")
     .replace(/^😴[ \t*]*Совет[ \t]+для[ \t]+сна[ \t*:—–-]*/gimu, "😴 **Совет для сна** — ")
@@ -22,9 +25,9 @@ export function normalizeLayout(text) {
 
 export function toTelegramHtml(text) {
   const html = escapeHtml(normalizeLayout(text)).replace(/\*\*([^*\n]+?)\*\*/g, "<b>$1</b>").replace(/\*\*/g, "");
-  // Главная мысль (строка с ✨) всегда жирная, даже если модель забыла звёздочки.
-  return html.replace(/^✨[ \t]*(\S.*)$/mu, (line, rest) =>
-    rest.startsWith("<b>") ? line : `✨ <b>${rest}</b>`,
+  // Сама главная мысль всегда жирная, даже если модель забыла звёздочки.
+  return html.replace(/^✨ Если коротко: (.+)$/mu, (line, rest) =>
+    rest.startsWith("<b>") ? line : `✨ Если коротко: <b>${rest}</b>`,
   );
 }
 

@@ -14,15 +14,15 @@ describe("промт", () => {
     for (const name of ["Миллер", "Цветков", "Ванга", "Лофф", "Нострадамус", "Фрейд", "Юнг", "Холл", "Перлз", "Адлер"]) {
       expect(names).toContain(name);
     }
-    expect(t.pick).toEqual({ dream_books: 3, psychology: 2 });
+    expect(t.pick).toEqual({ dream_books: 3, psychology: 3 });
   });
 
-  it("в промт попадают 3 сонника и 2 подхода", () => {
+  it("в промт попадают 3 сонника и 3 подхода", () => {
     const p = buildSystemPrompt(template, yaml);
     expect(p).not.toContain("{{");
     const section = (title) => p.split(title)[1].split("\n\n")[0];
     expect(section("Сонники:\n").split("\n").filter((l) => l.startsWith("- "))).toHaveLength(3);
-    expect(section("Психологические подходы:\n").split("\n").filter((l) => l.startsWith("- "))).toHaveLength(2);
+    expect(section("Психологические подходы:\n").split("\n").filter((l) => l.startsWith("- "))).toHaveLength(3);
     expect(p).toContain("уточняющий вопрос");
     expect(p).toContain("никаких вопросов к человеку в конце");
   });

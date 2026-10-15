@@ -67,7 +67,12 @@ _BOOKS_RE = re.compile(r"^📖[ \t*]*Сонники[ \t*:]*$", re.M)
 _PSYCH_RE = re.compile(r"^🧠[ \t*]*Психология[ \t*:]*$", re.M)
 _SLEEP_RE = re.compile(r"^😴[ \t*]*Совет[ \t]+для[ \t]+сна[ \t*:—–-]*", re.M | re.I)
 _REAL_RE = re.compile(r"^🏠[ \t*]*Из[ \t]+реальн\S*[ \t]+жизн[^\s*:—–-]*[ \t*:—–-]*", re.M | re.I)
-_MAIN_RE = re.compile(r"^✨[ \t]*(\S.*)$", re.M)
+_MAIN_LABEL_RE = re.compile(
+    r"^✨[ \t*]*(?:Если коротко|Коротко|Главная мысль|Суть сна|Суть)[ \t*]*[:—–-][ \t*]*",
+    re.M | re.I,
+)
+_MAIN_START_RE = re.compile(r"^✨[ \t]*(\S)", re.M)
+_MAIN_RE = re.compile(r"^✨ Если коротко: (.+)$", re.M)
 
 
 def normalize_layout(text: str) -> str:
@@ -80,6 +85,9 @@ def normalize_layout(text: str) -> str:
     ):
         blocks[1] = "🏠 " + blocks[1]
         text = "\n\n".join(blocks)
+    # Главная мысль — общий итог расклада; подписываем её «Если коротко:».
+    text = _MAIN_LABEL_RE.sub("✨ ", text, count=1)
+    text = _MAIN_START_RE.sub(r"✨ Если коротко: \1", text, count=1)
     text = _BOOKS_RE.sub("📖 **Сонники**", text)
     text = _PSYCH_RE.sub("🧠 **Психология**", text)
     text = _REAL_RE.sub("🏠 ", text)
@@ -92,7 +100,9 @@ def to_telegram_html(text: str) -> str:
     escaped = html.escape(normalize_layout(text), quote=False)
     result = _BOLD_RE.sub(r"<b>\1</b>", escaped).replace("**", "")
     return _MAIN_RE.sub(
-        lambda m: m.group(0) if m.group(1).startswith("<b>") else f"✨ <b>{m.group(1)}</b>",
+        lambda m: (
+            m.group(0) if m.group(1).startswith("<b>") else f"✨ Если коротко: <b>{m.group(1)}</b>"
+        ),
         result,
         count=1,
     )

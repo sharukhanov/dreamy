@@ -22,8 +22,8 @@ describe("сны", () => {
     d.interpreter.reply = "✨ **Главное** <тег>\n\n💭 Вопрос?";
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
     const sent = d.telegram.calls.find((c) => c.html);
-    expect(sent.text).toBe("✨ <b>Главное</b> &lt;тег&gt;\n\n💭 Вопрос?");
-    expect(sent.plain).toBe("✨ Главное <тег>\n\n💭 Вопрос?");
+    expect(sent.text).toBe("✨ Если коротко: <b>Главное</b> &lt;тег&gt;\n\n💭 Вопрос?");
+    expect(sent.plain).toBe("✨ Если коротко: Главное <тег>\n\n💭 Вопрос?");
   });
 
   it("не толкует слишком длинный сон", async () => {
