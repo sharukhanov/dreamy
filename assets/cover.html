@@ -1,0 +1,57 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1280px;height:720px;overflow:hidden;font-family:Inter,"Noto Color Emoji",sans-serif;
+ background:radial-gradient(ellipse 90% 110% at 30% 30%,#5b3fa8 0%,#2a1f6b 50%,#120d33 100%);color:#fff;position:relative}
+.stars span{position:absolute;background:#fff;border-radius:50%}
+.moon{position:absolute;left:40px;top:70px;width:520px;height:520px}
+.text{position:absolute;left:560px;top:70px;width:680px}
+h1{font-family:"Inter Display",Inter;font-weight:800;font-size:76px;letter-spacing:-1.5px;line-height:1}
+h1 b{background:linear-gradient(90deg,#fff3c4,#ffc35e);-webkit-background-clip:text;color:transparent}
+.sub{margin-top:18px;font-size:27px;line-height:1.35;color:#d9d1ff;font-weight:500}
+.card{margin-top:34px;background:rgba(255,255,255,.96);color:#1d1838;border-radius:26px;padding:24px 28px;
+ font-size:20px;line-height:1.45;box-shadow:0 20px 60px rgba(0,0,0,.35)}
+.card .row{margin-top:10px}
+.card b{font-weight:700}
+.chips{margin-top:26px;display:flex;gap:10px;flex-wrap:nowrap}
+.chip{white-space:nowrap;flex:none;border:1.5px solid rgba(255,255,255,.35);border-radius:999px;padding:8px 15px;font-size:18px;font-weight:600;color:#fff;background:rgba(255,255,255,.08)}
+.handle{position:absolute;left:62px;bottom:46px;font-size:24px;font-weight:700;color:#ffd98a;letter-spacing:.3px}
+</style></head><body>
+<div class="stars">
+ <span style="left:90px;top:60px;width:4px;height:4px;opacity:.7"></span>
+ <span style="left:470px;top:40px;width:3px;height:3px;opacity:.6"></span>
+ <span style="left:1210px;top:40px;width:4px;height:4px;opacity:.5"></span>
+ <span style="left:640px;top:690px;width:3px;height:3px;opacity:.5"></span>
+ <span style="left:1240px;top:560px;width:3px;height:3px;opacity:.6"></span>
+ <span style="left:30px;top:420px;width:3px;height:3px;opacity:.5"></span>
+</div>
+<svg class="moon" viewBox="80 60 480 480" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".6" stop-color="#ffd36e"/><stop offset="1" stop-color="#f5a742"/></linearGradient>
+  <radialGradient id="g"><stop offset="0" stop-color="#ffd98a" stop-opacity=".45"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#cfc6f5" stop-opacity=".9"/></linearGradient>
+  <mask id="cr"><rect x="0" y="0" width="640" height="640" fill="#000"/><circle cx="300" cy="290" r="165" fill="#fff"/><circle cx="380" cy="235" r="150" fill="#000"/></mask>
+  <path id="s" d="M0,-1 C.12,-.12 .12,-.12 1,0 C.12,.12 .12,.12 0,1 C-.12,.12 -.12,.12 -1,0 C-.12,-.12 -.12,-.12 0,-1Z"/>
+ </defs>
+ <circle cx="300" cy="290" r="230" fill="url(#g)"/>
+ <rect width="640" height="640" fill="url(#m)" mask="url(#cr)"/>
+ <path d="M188 318 Q214 344 242 322" fill="none" stroke="#9c5a12" stroke-width="9" stroke-linecap="round"/>
+ <g stroke="#9c5a12" stroke-width="6" stroke-linecap="round"><line x1="198" y1="331" x2="190" y2="345"/><line x1="215" y1="337" x2="213" y2="352"/><line x1="232" y1="333" x2="238" y2="347"/></g>
+ <circle cx="200" cy="372" r="16" fill="#ff9f7a" opacity=".45"/>
+ <use href="#s" transform="translate(445 215) scale(34)" fill="#fff6d6"/>
+ <use href="#s" transform="translate(505 330) scale(20)" fill="#ffe7a3"/>
+ <use href="#s" transform="translate(150 215) scale(16)" fill="#fff" opacity=".9"/>
+ <use href="#s" transform="translate(395 135) scale(13)" fill="#fff" opacity=".85"/>
+ <g fill="url(#c)"><circle cx="250" cy="482" r="58"/><circle cx="330" cy="455" r="72"/><circle cx="410" cy="488" r="52"/><circle cx="190" cy="505" r="40"/><rect x="180" y="490" width="270" height="55" rx="27"/></g>
+</svg>
+<div class="text">
+ <h1>Сонник<br><b>в Telegram</b></h1>
+ <div class="sub">Расскажи сон — получи расклад<br>по сонникам и психологии за пару секунд</div>
+ <div class="card">
+  <div>✨ Если коротко: <b>сон о погоне — это усталость от давления, от которого хочется убежать.</b></div>
+  <div class="row">📖 <b>Миллер</b> — к хлопотам, которые удастся преодолеть</div>
+  <div class="row">🧠 <b>Юнг</b> — в преследователе узнаётся ваша же тревога</div>
+ </div>
+ <div class="chips"><span class="chip">📖 8 сонников</span><span class="chip">🧠 6 психологов</span><span class="chip">📔 дневник снов</span><span class="chip">бесплатно</span></div>
+</div>
+<div class="handle">@dreamy_chatz_bot</div>
+</body></html>
