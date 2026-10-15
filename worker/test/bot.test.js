@@ -71,6 +71,70 @@ describe("сны", () => {
   });
 });
 
+describe("выбор сонников", () => {
+  const keyboardOf = (d) => {
+    const c = [...d.telegram.calls].reverse().find((x) => x.extra?.reply_markup || x.replyMarkup);
+    return (c.replyMarkup || c.extra.reply_markup).inline_keyboard.flat().map((b) => b.text);
+  };
+
+  it("/sonnik показывает кнопки, по умолчанию отмечены «Случайные»", async () => {
+    const d = makeDeps();
+    await handleUpdate(messageUpdate(OWNER_ID, "/sonnik"), d);
+    const buttons = keyboardOf(d);
+    expect(buttons).toContain("Миллер");
+    expect(buttons).toContain(`✅ ${texts.RANDOM_BOOKS_BUTTON}`);
+  });
+
+  it("отмечает сонники и толкует по ним", async () => {
+    const d = makeDeps();
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0"), d);
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:3"), d);
+    expect(await d.storage.getBooks(OWNER_ID)).toEqual(["Миллер", "Лофф"]);
+    expect(keyboardOf(d)).toContain("✅ Лофф");
+    expect(keyboardOf(d)).toContain(texts.RANDOM_BOOKS_BUTTON);
+
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:ok"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.booksChosen(["Миллер", "Лофф"], 3));
+
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: ["Миллер", "Лофф"] });
+  });
+
+  it("повторное нажатие снимает отметку", async () => {
+    const d = makeDeps();
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:1"), d);
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:1"), d);
+    expect(await d.storage.getBooks(OWNER_ID)).toEqual([]);
+  });
+
+  it("не больше трёх сонников", async () => {
+    const d = makeDeps();
+    for (const i of [0, 1, 2, 3]) await handleUpdate(callbackUpdate(OWNER_ID, `bk:t:${i}`), d);
+    expect(await d.storage.getBooks(OWNER_ID)).toHaveLength(3);
+    const alert = d.telegram.calls.filter((c) => c.method === "answerCallbackQuery").at(-1);
+    expect(alert.text).toBe(texts.tooManyBooks(3));
+    expect(alert.showAlert).toBe(true);
+  });
+
+  it("«Случайные» сбрасывает выбор", async () => {
+    const d = makeDeps();
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:t:0"), d);
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:r"), d);
+    expect(await d.storage.getBooks(OWNER_ID)).toEqual([]);
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [] });
+  });
+
+  it("под толкованием есть кнопка «Сменить сонники», она открывает выбор", async () => {
+    const d = makeDeps();
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    const sent = d.telegram.calls.find((c) => c.html);
+    expect(sent.extra.reply_markup.inline_keyboard[0][0].text).toBe(texts.CHANGE_BOOKS_BUTTON);
+    await handleUpdate(callbackUpdate(OWNER_ID, "bk:open"), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.chooseBooks(3));
+  });
+});
+
 describe("доступ", () => {
   it("отказывает чужим", async () => {
     const d = makeDeps();
@@ -133,12 +197,13 @@ describe("доступ", () => {
 });
 
 describe("команды", () => {
-  it("/start и /help", async () => {
+  it("/start показывает приветствие и выбор сонников, /help — справку", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
     await handleUpdate(messageUpdate(OWNER_ID, "/help"), d);
-    expect(d.telegram.texts).toEqual([texts.START, texts.HELP]);
+    expect(d.telegram.texts).toEqual([texts.START, texts.chooseBooks(3), texts.HELP]);
     expect(texts.HELP).toContain("не медицинский совет");
+    expect(texts.HELP).toContain("/sonnik");
   });
 
   it("/history пустой", async () => {

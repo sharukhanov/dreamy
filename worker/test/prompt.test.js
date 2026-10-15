@@ -27,6 +27,20 @@ describe("промт", () => {
     expect(p).toContain("никаких вопросов к человеку в конце");
   });
 
+  it("выбранные сонники попадают в промт вместо случайных", () => {
+    const build = createPromptBuilder(template, yaml);
+    const p = build({ dreamBooks: ["Лофф", "Миллер"] });
+    const books = p.split("Сонники:\n")[1].split("\n\n")[0].split("\n");
+    expect(books).toHaveLength(2);
+    expect(books[0]).toContain("Миллер");
+    expect(books[1]).toContain("Лофф");
+  });
+
+  it("неизвестные сонники игнорируются, тогда берутся случайные", () => {
+    const p = createPromptBuilder(template, yaml)({ dreamBooks: ["Несуществующий"] });
+    expect(p.split("Сонники:\n")[1].split("\n\n")[0].split("\n")).toHaveLength(3);
+  });
+
   it("набор традиций меняется от сна к сну", () => {
     const build = createPromptBuilder(template, yaml);
     const variants = new Set(Array.from({ length: 30 }, () => build()));

@@ -3,11 +3,13 @@ import promptTemplate from "../../prompts/interpreter.md";
 import traditionsYaml from "../../config/traditions.yaml";
 import { handleUpdate, parseAccess } from "./bot.js";
 import { GeminiInterpreter } from "./gemini.js";
-import { createPromptBuilder } from "./prompt.js";
+import { createPromptBuilder, parseTraditions } from "./prompt.js";
 import { D1Storage } from "./storage.js";
 import { Telegram } from "./telegram.js";
 
 const buildPrompt = createPromptBuilder(promptTemplate, traditionsYaml);
+const TRADITIONS = parseTraditions(traditionsYaml);
+const BOOKS = { all: TRADITIONS.dream_books, max: TRADITIONS.pick.dream_books };
 
 export default {
   async fetch(request, env) {
@@ -34,6 +36,7 @@ export default {
       access: parseAccess(env.ALLOWED_USER_IDS),
       dailyLimit: Number(env.DAILY_LIMIT ?? 10),
       timeZone: env.TIME_ZONE || "Europe/Moscow",
+      books: BOOKS,
     };
 
     try {

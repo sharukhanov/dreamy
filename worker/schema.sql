@@ -11,3 +11,9 @@ CREATE TABLE IF NOT EXISTS processed_updates (
     update_id INTEGER PRIMARY KEY,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER PRIMARY KEY,
+    dream_books TEXT NOT NULL DEFAULT '[]',
+    updated_at TEXT NOT NULL
+);

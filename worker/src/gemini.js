@@ -16,9 +16,10 @@ export class GeminiInterpreter {
     this.retryDelayMs = retryDelayMs;
   }
 
-  async interpret(dreamText) {
+  // options: { dreamBooks: [имена сонников] } — пусто, значит случайные.
+  async interpret(dreamText, options = {}) {
     const systemPrompt =
-      typeof this.systemPrompt === "function" ? this.systemPrompt() : this.systemPrompt;
+      typeof this.systemPrompt === "function" ? this.systemPrompt(options) : this.systemPrompt;
     let lastError;
     for (let i = 0; i < this.models.length; i++) {
       const model = this.models[i];

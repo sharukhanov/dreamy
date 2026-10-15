@@ -2,6 +2,11 @@ import { InterpreterError } from "../src/gemini.js";
 
 export const OWNER_ID = 111;
 export const STRANGER_ID = 999;
+export const BOOKS = ["Миллер", "Цветков", "Ванга", "Лофф", "Нострадамус"].map((name) => ({
+  name,
+  label: name,
+  button: name,
+}));
 
 export class FakeTelegram {
   constructor() {
@@ -10,14 +15,17 @@ export class FakeTelegram {
   async sendMessage(chatId, text, extra = {}) {
     this.calls.push({ method: "sendMessage", chatId, text, extra });
   }
-  async sendHtml(chatId, html, plain) {
-    this.calls.push({ method: "sendMessage", chatId, text: html, plain, html: true });
+  async sendHtml(chatId, html, plain, extra = {}) {
+    this.calls.push({ method: "sendMessage", chatId, text: html, plain, html: true, extra });
+  }
+  async editMessageReplyMarkup(chatId, messageId, replyMarkup) {
+    this.calls.push({ method: "editMessageReplyMarkup", chatId, messageId, replyMarkup });
   }
   async sendTyping(chatId) {
     this.calls.push({ method: "sendTyping", chatId });
   }
-  async editMessageText(chatId, messageId, text) {
-    this.calls.push({ method: "editMessageText", chatId, messageId, text });
+  async editMessageText(chatId, messageId, text, extra = {}) {
+    this.calls.push({ method: "editMessageText", chatId, messageId, text, extra });
   }
   async answerCallbackQuery(id, text, showAlert) {
     this.calls.push({ method: "answerCallbackQuery", id, text, showAlert });
@@ -30,6 +38,7 @@ export class FakeTelegram {
 export class MemoryStorage {
   constructor() {
     this.rows = [];
+    this.books = new Map();
     this.seen = new Set();
     this.nextId = 1;
   }
@@ -50,6 +59,12 @@ export class MemoryStorage {
   async latest(userId, limit = 5) {
     return this.rows.filter((r) => r.user_id === userId).sort((a, b) => b.id - a.id).slice(0, limit);
   }
+  async getBooks(userId) {
+    return this.books.get(userId) || [];
+  }
+  async setBooks(userId, names) {
+    this.books.set(userId, names);
+  }
   async countSince(userId, sinceIso) {
     return this.rows.filter((r) => r.user_id === userId && r.created_at >= sinceIso).length;
   }
@@ -65,9 +80,11 @@ export class FakeInterpreter {
     this.reply = reply;
     this.fail = false;
     this.calls = [];
+    this.options = [];
   }
-  async interpret(text) {
+  async interpret(text, options = {}) {
     this.calls.push(text);
+    this.options.push(options);
     if (this.fail) throw new InterpreterError("boom");
     return this.reply;
   }
@@ -108,5 +125,6 @@ export function makeDeps(allowed = [OWNER_ID], { isPublic = false, dailyLimit = 
     interpreter: new FakeInterpreter(),
     storage: new MemoryStorage(),
     timeZone: "Europe/Moscow",
+    books: { all: BOOKS, max: 3 },
   };
 }

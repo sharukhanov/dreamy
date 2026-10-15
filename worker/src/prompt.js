@@ -42,19 +42,26 @@ function formatSection(items) {
     .join("\n");
 }
 
-// Возвращает функцию, которая при каждом вызове собирает промт со свежим набором традиций.
+// Сонники, выбранные человеком (по имени, не больше лимита); пусто — значит случайные.
+export function chosenBooks(traditions, names) {
+  const wanted = new Set(names || []);
+  return traditions.dream_books.filter((b) => wanted.has(b.name)).slice(0, traditions.pick.dream_books);
+}
+
+// Возвращает функцию, которая при каждом вызове собирает промт: выбранные сонники
+// (если человек их выбрал) или случайные, а психологические подходы — всегда случайные.
 export function createPromptBuilder(template, yamlText, random = Math.random) {
   const traditions = parseTraditions(yamlText);
-  return () =>
-    template
-      .replace(
-        "{{DREAM_BOOKS}}",
-        formatSection(pickRandom(traditions.dream_books, traditions.pick.dream_books, random)),
-      )
+  return ({ dreamBooks } = {}) => {
+    const chosen = chosenBooks(traditions, dreamBooks);
+    const books = chosen.length ? chosen : pickRandom(traditions.dream_books, traditions.pick.dream_books, random);
+    return template
+      .replace("{{DREAM_BOOKS}}", formatSection(books))
       .replace(
         "{{PSYCHOLOGY}}",
         formatSection(pickRandom(traditions.psychology, traditions.pick.psychology, random)),
       );
+  };
 }
 
 export function buildSystemPrompt(template, yamlText, random = Math.random) {

@@ -40,6 +40,25 @@ export class D1Storage {
     return row?.n ?? 0;
   }
 
+  async getBooks(userId) {
+    const row = await this.db.prepare("SELECT dream_books FROM user_settings WHERE user_id = ?").bind(userId).first();
+    try {
+      return row ? JSON.parse(row.dream_books) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async setBooks(userId, names) {
+    await this.db
+      .prepare(
+        "INSERT INTO user_settings (user_id, dream_books, updated_at) VALUES (?, ?, ?) " +
+          "ON CONFLICT(user_id) DO UPDATE SET dream_books = excluded.dream_books, updated_at = excluded.updated_at",
+      )
+      .bind(userId, JSON.stringify(names), new Date().toISOString())
+      .run();
+  }
+
   async deleteAll(userId) {
     const res = await this.db.prepare("DELETE FROM dreams WHERE user_id = ?").bind(userId).run();
     return res.meta.changes;

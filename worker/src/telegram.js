@@ -22,9 +22,9 @@ export class Telegram {
   }
 
   // Отправка с HTML-разметкой; если Telegram её не принял — тем же текстом без разметки.
-  async sendHtml(chatId, html, plain) {
-    const res = await this.call("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML" });
-    if (!res.ok && plain !== undefined) return this.sendMessage(chatId, plain);
+  async sendHtml(chatId, html, plain, extra = {}) {
+    const res = await this.call("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML", ...extra });
+    if (!res.ok && plain !== undefined) return this.sendMessage(chatId, plain, extra);
     return res;
   }
 
@@ -32,8 +32,12 @@ export class Telegram {
     return this.call("sendChatAction", { chat_id: chatId, action: "typing" });
   }
 
-  editMessageText(chatId, messageId, text) {
-    return this.call("editMessageText", { chat_id: chatId, message_id: messageId, text });
+  editMessageText(chatId, messageId, text, extra = {}) {
+    return this.call("editMessageText", { chat_id: chatId, message_id: messageId, text, ...extra });
+  }
+
+  editMessageReplyMarkup(chatId, messageId, replyMarkup) {
+    return this.call("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: replyMarkup });
   }
 
   answerCallbackQuery(id, text, showAlert = false) {
