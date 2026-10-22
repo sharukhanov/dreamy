@@ -19,6 +19,11 @@ export class FakeTelegram {
   async sendHtml(chatId, html, plain, extra = {}) {
     this.calls.push({ method: "sendMessage", chatId, text: html, plain, html: true, extra });
   }
+  async downloadFile(fileId) {
+    this.calls.push({ method: "downloadFile", fileId });
+    if (this.downloadFails) throw new Error("download failed");
+    return "QUJD";
+  }
   async editMessageReplyMarkup(chatId, messageId, replyMarkup) {
     this.calls.push({ method: "editMessageReplyMarkup", chatId, messageId, replyMarkup });
   }
@@ -114,6 +119,11 @@ export class FakeInterpreter {
     this.fail = false;
     this.calls = [];
     this.options = [];
+  }
+  async transcribe(audio, mimeType) {
+    this.transcribed = { audio, mimeType };
+    if (this.fail) throw new InterpreterError("boom");
+    return this.transcript ?? "Мне снилось море и большой корабль.";
   }
   async interpret(text, options = {}) {
     this.calls.push(text);

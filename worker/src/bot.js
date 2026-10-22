@@ -1,7 +1,7 @@
 // Логика бота: обработка одного апдейта Telegram. Тексты снов в логи не пишем.
 import * as texts from "./texts.js";
 import { applyMode, escapeHtml, stripMarkup, toTelegramHtml } from "./format.js";
-import { InterpreterError } from "./gemini.js";
+import { InterpreterError, UNINTELLIGIBLE } from "./gemini.js";
 import { handlePickerCallback, resultMarkup, sendModePicker, sendPicker, sendSettings } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
 import { formatStats, periodStarts } from "./stats.js";
@@ -10,6 +10,8 @@ const TELEGRAM_LIMIT = 4096;
 const FORGET_YES_DATA = "forget:yes";
 const FORGET_NO_DATA = "forget:no";
 const TYPING_INTERVAL_MS = 4500;
+const MAX_VOICE_SECONDS = 180;
+const MAX_VOICE_BYTES = 20 * 1024 * 1024; // больше Telegram не отдаёт ботам
 const NEXT_DREAM_DATA = "nx:dream";
 const HISTORY_DATA = "nx:history";
 export function parseUserIds(raw) {
@@ -115,6 +117,8 @@ async function handleMessage(message, deps) {
   const { telegram } = deps;
   const chatId = message.chat.id;
 
+  const voice = message.voice || message.audio;
+  if (voice) return handleVoice(voice, message, deps);
   if (typeof message.text !== "string") {
     await deps.storage.logEvent(message.from.id, "non_text");
     await telegram.sendMessage(chatId, texts.ONLY_TEXT);
@@ -195,6 +199,56 @@ async function sendHistory(chatId, userId, { telegram, storage, timeZone }) {
   }
 }
 
+// true — человек упёрся в дневной лимит (сообщение уже отправлено).
+async function hitDailyLimit(userId, chatId, { telegram, storage, access, dailyLimit }) {
+  if (!(dailyLimit > 0) || access.ids.has(userId)) return false;
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  if ((await storage.countSince(userId, since)) < dailyLimit) return false;
+  console.log(`Пользователь ${userId}: достигнут дневной лимит`);
+  await storage.logEvent(userId, "limit_hit");
+  await telegram.sendMessage(chatId, texts.dailyLimit(dailyLimit));
+  return true;
+}
+
+// Голосовое: скачиваем, расшифровываем через Gemini, показываем расшифровку и толкуем как текст.
+async function handleVoice(voice, message, deps) {
+  const { telegram, interpreter, storage } = deps;
+  const chatId = message.chat.id;
+  const userId = message.from.id;
+
+  if ((voice.duration || 0) > MAX_VOICE_SECONDS || (voice.file_size || 0) > MAX_VOICE_BYTES) {
+    await storage.logEvent(userId, "too_long");
+    await telegram.sendMessage(chatId, texts.voiceTooLong(Math.round(MAX_VOICE_SECONDS / 60)));
+    return;
+  }
+  if (await hitDailyLimit(userId, chatId, deps)) return;
+
+  console.log(`Пользователь ${userId}: голосовое (${voice.duration || "?"} с)`);
+  await telegram.sendTyping(chatId);
+  const typing = setInterval(() => telegram.sendTyping(chatId).catch(() => {}), TYPING_INTERVAL_MS);
+  let transcript;
+  try {
+    const audio = await telegram.downloadFile(voice.file_id);
+    transcript = (await interpreter.transcribe(audio, voice.mime_type || "audio/ogg")).trim();
+  } catch (err) {
+    console.error(`Пользователь ${userId}: не удалось расшифровать голосовое: ${err?.message}`);
+    await storage.logEvent(userId, "voice_fail");
+    await telegram.sendMessage(chatId, err instanceof InterpreterError ? texts.API_ERROR : texts.VOICE_FAILED);
+    return;
+  } finally {
+    clearInterval(typing);
+  }
+
+  if (!transcript || transcript.toUpperCase().includes(UNINTELLIGIBLE)) {
+    await storage.logEvent(userId, "voice_fail");
+    await telegram.sendMessage(chatId, texts.VOICE_UNCLEAR);
+    return;
+  }
+  await storage.logEvent(userId, "voice_ok");
+  await telegram.sendHtml(chatId, texts.voiceHeard(escapeHtml(cut(transcript, 1500))), texts.voiceHeardPlain(cut(transcript, 1500)));
+  return handleDream(transcript, message, deps);
+}
+
 async function handleDream(text, message, { telegram, interpreter, storage, access, dailyLimit }) {
   const chatId = message.chat.id;
   const userId = message.from.id;
@@ -215,15 +269,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
     return;
   }
 
-  if (dailyLimit > 0 && !access.ids.has(userId)) {
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    if ((await storage.countSince(userId, since)) >= dailyLimit) {
-      console.log(`Пользователь ${userId}: достигнут дневной лимит`);
-      await storage.logEvent(userId, "limit_hit");
-      await telegram.sendMessage(chatId, texts.dailyLimit(dailyLimit));
-      return;
-    }
-  }
+  if (await hitDailyLimit(userId, chatId, { telegram, storage, access, dailyLimit })) return;
 
   console.log(`Пользователь ${userId}: толкование сна (${text.length} символов)`);
   await telegram.sendTyping(chatId);

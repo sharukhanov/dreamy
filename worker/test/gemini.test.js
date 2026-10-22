@@ -68,6 +68,14 @@ describe("Gemini", () => {
     expect(calls).toEqual(["SYS1", "SYS2"]);
   });
 
+  it("расшифровка отправляет аудио и свой промт", async () => {
+    const { it: g, calls } = make([ok(" Снилось море. ")]);
+    expect(await g.transcribe("QUJD", "audio/ogg")).toBe("Снилось море.");
+    expect(calls[0].body.contents[0].parts[0]).toEqual({ inlineData: { mimeType: "audio/ogg", data: "QUJD" } });
+    expect(calls[0].body.systemInstruction.parts[0].text).toContain("дословно");
+    expect(calls[0].body.generationConfig.temperature).toBe(0);
+  });
+
   it("пропускает «мысли» модели", async () => {
     const resp = {
       ok: true,

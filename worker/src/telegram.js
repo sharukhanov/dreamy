@@ -3,6 +3,7 @@
 export class Telegram {
   constructor(token, fetchFn) {
     this.base = `https://api.telegram.org/bot${token}`;
+    this.fileBase = `https://api.telegram.org/file/bot${token}`;
     this.fetch = fetchFn || ((...args) => fetch(...args));
   }
 
@@ -26,6 +27,20 @@ export class Telegram {
     const res = await this.call("sendMessage", { chat_id: chatId, text: html, parse_mode: "HTML", ...extra });
     if (!res.ok && plain !== undefined) return this.sendMessage(chatId, plain, extra);
     return res;
+  }
+
+  // Скачивает файл (например, голосовое) и возвращает его в base64.
+  async downloadFile(fileId) {
+    const info = await this.call("getFile", { file_id: fileId });
+    if (!info.ok || !info.result?.file_path) throw new Error("getFile не удался");
+    const response = await this.fetch(`${this.fileBase}/${info.result.file_path}`);
+    if (!response.ok) throw new Error(`загрузка файла: HTTP ${response.status}`);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    }
+    return btoa(binary);
   }
 
   sendTyping(chatId) {

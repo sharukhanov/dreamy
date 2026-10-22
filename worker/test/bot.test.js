@@ -56,9 +56,66 @@ describe("сны", () => {
     expect(await d.storage.latest(OWNER_ID)).toHaveLength(0);
   });
 
-  it("на голосовое отвечает, что понимает только текст", async () => {
+  const voiceUpdate = (userId, extra = {}) =>
+    messageUpdate(userId, undefined, { voice: { file_id: "v1", file_unique_id: "u", duration: 12, mime_type: "audio/ogg", ...extra } });
+
+  it("голосовое: расшифровывает, показывает расшифровку и толкует", async () => {
     const d = makeDeps();
-    await handleUpdate(messageUpdate(OWNER_ID, undefined, { voice: { file_id: "x", duration: 2 } }), d);
+    await handleUpdate(voiceUpdate(OWNER_ID), d);
+    expect(d.interpreter.transcribed).toEqual({ audio: "QUJD", mimeType: "audio/ogg" });
+    expect(d.telegram.texts[0]).toBe(texts.voiceHeard("Мне снилось море и большой корабль."));
+    expect(d.interpreter.calls).toEqual(["Мне снилось море и большой корабль."]);
+    expect(d.telegram.texts.at(-1)).toContain("Толкование сна.");
+    const rows = await d.storage.latest(OWNER_ID);
+    expect(rows[0].dream_text).toBe("Мне снилось море и большой корабль.");
+    expect(d.storage.events.map((e) => e.type)).toEqual(["voice_ok", "dream_ok"]);
+  });
+
+  it("голосовое длиннее 3 минут не принимается", async () => {
+    const d = makeDeps();
+    await handleUpdate(voiceUpdate(OWNER_ID, { duration: 200 }), d);
+    expect(d.telegram.texts).toEqual([texts.voiceTooLong(3)]);
+    expect(d.interpreter.transcribed).toBeUndefined();
+  });
+
+  it("неразборчивое голосовое", async () => {
+    const d = makeDeps();
+    d.interpreter.transcript = "НЕРАЗБОРЧИВО";
+    await handleUpdate(voiceUpdate(OWNER_ID), d);
+    expect(d.telegram.texts).toEqual([texts.VOICE_UNCLEAR]);
+    expect(d.interpreter.calls).toHaveLength(0);
+  });
+
+  it("голосовое не скачалось или модель недоступна", async () => {
+    const d = makeDeps();
+    d.telegram.downloadFails = true;
+    await handleUpdate(voiceUpdate(OWNER_ID), d);
+    expect(d.telegram.texts).toEqual([texts.VOICE_FAILED]);
+    const d2 = makeDeps();
+    d2.interpreter.fail = true;
+    await handleUpdate(voiceUpdate(OWNER_ID), d2);
+    expect(d2.telegram.texts).toEqual([texts.API_ERROR]);
+  });
+
+  it("голосовое с признаками кризиса — бережный ответ", async () => {
+    const d = makeDeps();
+    d.interpreter.transcript = "Снилась тьма, и я не хочу больше жить";
+    await handleUpdate(voiceUpdate(OWNER_ID), d);
+    expect(d.telegram.texts.at(-1)).toBe(texts.CRISIS_REPLY);
+    expect(d.interpreter.calls).toHaveLength(0);
+  });
+
+  it("голосовое тоже упирается в дневной лимит, не тратя расшифровку", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true, dailyLimit: 1 });
+    await d.storage.add(STRANGER_ID, "сон", "т");
+    await handleUpdate(voiceUpdate(STRANGER_ID), d);
+    expect(d.telegram.texts).toEqual([texts.dailyLimit(1)]);
+    expect(d.interpreter.transcribed).toBeUndefined();
+  });
+
+  it("на фото отвечает, что понимает текст и голосовые", async () => {
+    const d = makeDeps();
+    await handleUpdate(messageUpdate(OWNER_ID, undefined, { photo: [{ file_id: "p", file_unique_id: "u", width: 1, height: 1 }] }), d);
     expect(d.telegram.texts).toEqual([texts.ONLY_TEXT]);
   });
 
