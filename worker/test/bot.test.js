@@ -9,8 +9,13 @@ describe("сны", () => {
   it("толкует и сохраняет сон, показывает «печатает»", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.telegram.texts).toEqual(["Толкование сна."]);
-    expect(d.telegram.calls[0].method).toBe("sendTyping");
+    // Сначала «принял, жду ~20 секунд», потом это же сообщение превращается в толкование.
+    expect(d.telegram.texts).toEqual([texts.DREAM_ACCEPTED, "Толкование сна."]);
+    const [status, , answer] = d.telegram.calls;
+    expect(status.method).toBe("sendMessage");
+    expect(d.telegram.calls.some((c) => c.method === "sendTyping")).toBe(true);
+    expect(answer.method).toBe("editMessageText");
+    expect(answer.messageId).toBe(1001);
     expect(d.interpreter.calls).toEqual([DREAM]);
     const rows = await d.storage.latest(OWNER_ID);
     expect(rows).toHaveLength(1);
@@ -51,7 +56,7 @@ describe("сны", () => {
     const d = makeDeps();
     d.interpreter.fail = true;
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
-    expect(d.telegram.texts).toEqual([texts.API_ERROR]);
+    expect(d.telegram.texts).toEqual([texts.DREAM_ACCEPTED, texts.API_ERROR.replace(/</g, "&lt;")]);
     expect(texts.API_ERROR).toContain("Временно не удаётся подключиться к модели");
     expect(await d.storage.latest(OWNER_ID)).toHaveLength(0);
   });
@@ -59,13 +64,14 @@ describe("сны", () => {
   const voiceUpdate = (userId, extra = {}) =>
     messageUpdate(userId, undefined, { voice: { file_id: "v1", file_unique_id: "u", duration: 12, mime_type: "audio/ogg", ...extra } });
 
-  it("голосовое: расшифровывает, показывает расшифровку и толкует", async () => {
+  it("голосовое: сразу «принял, до минуты», потом это сообщение становится толкованием", async () => {
     const d = makeDeps();
     await handleUpdate(voiceUpdate(OWNER_ID), d);
     expect(d.interpreter.transcribed).toEqual({ audio: "QUJD", mimeType: "audio/ogg" });
-    expect(d.telegram.texts[0]).toBe(texts.voiceHeard("Мне снилось море и большой корабль."));
+    expect(d.telegram.texts).toEqual([texts.VOICE_ACCEPTED, "Толкование сна."]);
+    expect(texts.VOICE_ACCEPTED).toContain("до минуты");
+    expect(d.telegram.calls.at(-1).method).toBe("editMessageText");
     expect(d.interpreter.calls).toEqual(["Мне снилось море и большой корабль."]);
-    expect(d.telegram.texts.at(-1)).toContain("Толкование сна.");
     const rows = await d.storage.latest(OWNER_ID);
     expect(rows[0].dream_text).toBe("Мне снилось море и большой корабль.");
     expect(d.storage.events.map((e) => e.type)).toEqual(["voice_ok", "dream_ok"]);
@@ -75,6 +81,7 @@ describe("сны", () => {
     const d = makeDeps();
     await handleUpdate(voiceUpdate(OWNER_ID, { duration: 200 }), d);
     expect(d.telegram.texts).toEqual([texts.voiceTooLong(3)]);
+    expect(texts.voiceTooLong(3)).toContain("длиннее 3 минут");
     expect(d.interpreter.transcribed).toBeUndefined();
   });
 
@@ -82,7 +89,7 @@ describe("сны", () => {
     const d = makeDeps();
     d.interpreter.transcript = "НЕРАЗБОРЧИВО";
     await handleUpdate(voiceUpdate(OWNER_ID), d);
-    expect(d.telegram.texts).toEqual([texts.VOICE_UNCLEAR]);
+    expect(d.telegram.texts).toEqual([texts.VOICE_ACCEPTED, texts.VOICE_UNCLEAR]);
     expect(d.interpreter.calls).toHaveLength(0);
   });
 
@@ -90,11 +97,11 @@ describe("сны", () => {
     const d = makeDeps();
     d.telegram.downloadFails = true;
     await handleUpdate(voiceUpdate(OWNER_ID), d);
-    expect(d.telegram.texts).toEqual([texts.VOICE_FAILED]);
+    expect(d.telegram.texts).toEqual([texts.VOICE_ACCEPTED, texts.VOICE_FAILED]);
     const d2 = makeDeps();
     d2.interpreter.fail = true;
     await handleUpdate(voiceUpdate(OWNER_ID), d2);
-    expect(d2.telegram.texts).toEqual([texts.API_ERROR]);
+    expect(d2.telegram.texts).toEqual([texts.VOICE_ACCEPTED, texts.API_ERROR]);
   });
 
   it("голосовое с признаками кризиса — бережный ответ", async () => {
@@ -310,7 +317,7 @@ describe("доступ", () => {
   it("в открытом режиме отвечает любому", async () => {
     const d = makeDeps([], { isPublic: true });
     await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
-    expect(d.telegram.texts).toEqual(["Толкование сна."]);
+    expect(d.telegram.texts).toEqual([texts.DREAM_ACCEPTED, "Толкование сна."]);
   });
 
   it("дневной лимит для обычных пользователей", async () => {

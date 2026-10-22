@@ -15,6 +15,11 @@ export class FakeTelegram {
   }
   async sendMessage(chatId, text, extra = {}) {
     this.calls.push({ method: "sendMessage", chatId, text, extra });
+    return { ok: true, result: { message_id: 1000 + this.calls.length } };
+  }
+  async editHtml(chatId, messageId, html, plain, extra = {}) {
+    this.calls.push({ method: "editMessageText", chatId, messageId, text: html, plain, html: true, extra });
+    return { ok: true };
   }
   async sendHtml(chatId, html, plain, extra = {}) {
     this.calls.push({ method: "sendMessage", chatId, text: html, plain, html: true, extra });

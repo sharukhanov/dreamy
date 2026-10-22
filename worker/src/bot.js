@@ -199,6 +199,19 @@ async function sendHistory(chatId, userId, { telegram, storage, timeZone }) {
   }
 }
 
+// Сообщение «принял, обрабатываю…»: потом оно превращается в ответ, чтобы человек видел, сколько ждать.
+async function sendStatus(telegram, chatId, text) {
+  const res = await telegram.sendMessage(chatId, text);
+  return { chatId, messageId: res?.result?.message_id };
+}
+
+// Ответ: редактируем статус-сообщение, если оно есть, иначе отправляем новое.
+async function reply(telegram, chatId, status, text, html, extra = {}) {
+  if (status?.messageId) return telegram.editHtml(chatId, status.messageId, html ?? escapeHtml(text), text, extra);
+  if (html !== undefined) return telegram.sendHtml(chatId, html, text, extra);
+  return telegram.sendMessage(chatId, text, extra);
+}
+
 // true — человек упёрся в дневной лимит (сообщение уже отправлено).
 async function hitDailyLimit(userId, chatId, { telegram, storage, access, dailyLimit }) {
   if (!(dailyLimit > 0) || access.ids.has(userId)) return false;
@@ -210,7 +223,7 @@ async function hitDailyLimit(userId, chatId, { telegram, storage, access, dailyL
   return true;
 }
 
-// Голосовое: скачиваем, расшифровываем через Gemini, показываем расшифровку и толкуем как текст.
+// Голосовое: сразу говорим, что приняли и сколько ждать, затем расшифровываем через Gemini и толкуем как текст.
 async function handleVoice(voice, message, deps) {
   const { telegram, interpreter, storage } = deps;
   const chatId = message.chat.id;
@@ -224,6 +237,7 @@ async function handleVoice(voice, message, deps) {
   if (await hitDailyLimit(userId, chatId, deps)) return;
 
   console.log(`Пользователь ${userId}: голосовое (${voice.duration || "?"} с)`);
+  const status = await sendStatus(telegram, chatId, texts.VOICE_ACCEPTED);
   await telegram.sendTyping(chatId);
   const typing = setInterval(() => telegram.sendTyping(chatId).catch(() => {}), TYPING_INTERVAL_MS);
   let transcript;
@@ -233,7 +247,7 @@ async function handleVoice(voice, message, deps) {
   } catch (err) {
     console.error(`Пользователь ${userId}: не удалось расшифровать голосовое: ${err?.message}`);
     await storage.logEvent(userId, "voice_fail");
-    await telegram.sendMessage(chatId, err instanceof InterpreterError ? texts.API_ERROR : texts.VOICE_FAILED);
+    await reply(telegram, chatId, status, err instanceof InterpreterError ? texts.API_ERROR : texts.VOICE_FAILED);
     return;
   } finally {
     clearInterval(typing);
@@ -241,37 +255,40 @@ async function handleVoice(voice, message, deps) {
 
   if (!transcript || transcript.toUpperCase().includes(UNINTELLIGIBLE)) {
     await storage.logEvent(userId, "voice_fail");
-    await telegram.sendMessage(chatId, texts.VOICE_UNCLEAR);
+    await reply(telegram, chatId, status, texts.VOICE_UNCLEAR);
     return;
   }
   await storage.logEvent(userId, "voice_ok");
-  await telegram.sendHtml(chatId, texts.voiceHeard(escapeHtml(cut(transcript, 1500))), texts.voiceHeardPlain(cut(transcript, 1500)));
-  return handleDream(transcript, message, deps);
+  return handleDream(transcript, message, deps, status);
 }
 
-async function handleDream(text, message, { telegram, interpreter, storage, access, dailyLimit }) {
+// status — сообщение «принял голосовое…», если сон пришёл голосом (его и превратим в ответ).
+async function handleDream(text, message, deps, status = null) {
+  const { telegram, interpreter, storage } = deps;
   const chatId = message.chat.id;
   const userId = message.from.id;
 
   if (text.length > texts.MAX_DREAM_LENGTH) {
     await storage.logEvent(userId, "too_long");
-    await telegram.sendMessage(chatId, texts.tooLong(text.length));
+    await reply(telegram, chatId, status, texts.tooLong(text.length));
     return;
   }
   if (!text) {
-    await telegram.sendMessage(chatId, texts.ONLY_TEXT);
+    await reply(telegram, chatId, status, texts.ONLY_TEXT);
     return;
   }
   if (looksLikeCrisis(text)) {
     console.log(`Пользователь ${userId}: сработала кризисная проверка`);
     await storage.logEvent(userId, "crisis");
-    await telegram.sendMessage(chatId, texts.CRISIS_REPLY);
+    await reply(telegram, chatId, status, texts.CRISIS_REPLY);
     return;
   }
 
-  if (await hitDailyLimit(userId, chatId, { telegram, storage, access, dailyLimit })) return;
+  // Для голосового лимит уже проверен до расшифровки.
+  if (!status && (await hitDailyLimit(userId, chatId, deps))) return;
 
   console.log(`Пользователь ${userId}: толкование сна (${text.length} символов)`);
+  status = status || (await sendStatus(telegram, chatId, texts.DREAM_ACCEPTED));
   await telegram.sendTyping(chatId);
   const typing = setInterval(() => telegram.sendTyping(chatId).catch(() => {}), TYPING_INTERVAL_MS);
   const dreamBooks = await storage.getChoice(userId, "dream_books");
@@ -284,7 +301,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
     if (!(err instanceof InterpreterError)) throw err;
     console.error(`Пользователь ${userId}: модель недоступна`);
     await storage.logEvent(userId, "model_fail");
-    await telegram.sendMessage(chatId, texts.API_ERROR);
+    await reply(telegram, chatId, status, texts.API_ERROR);
     return;
   } finally {
     clearInterval(typing);
@@ -292,7 +309,7 @@ async function handleDream(text, message, { telegram, interpreter, storage, acce
 
   await storage.add(userId, text, interpretation);
   await storage.logEvent(userId, "dream_ok");
-  await telegram.sendHtml(chatId, toTelegramHtml(interpretation), cut(stripMarkup(interpretation), TELEGRAM_LIMIT), {
+  await reply(telegram, chatId, status, cut(stripMarkup(interpretation), TELEGRAM_LIMIT), toTelegramHtml(interpretation), {
     reply_markup: resultMarkup(),
   });
 }

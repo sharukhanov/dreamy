@@ -51,6 +51,17 @@ export class Telegram {
     return this.call("editMessageText", { chat_id: chatId, message_id: messageId, text, ...extra });
   }
 
+  // Превращает сообщение «принял, жду…» в готовый ответ. Если HTML не принят — без разметки,
+  // а если сообщение отредактировать нельзя — отправляет новым.
+  async editHtml(chatId, messageId, html, plain, extra = {}) {
+    const base = { chat_id: chatId, message_id: messageId, ...extra };
+    let res = await this.call("editMessageText", { ...base, text: html, parse_mode: "HTML" });
+    if (res.ok) return res;
+    res = await this.call("editMessageText", { ...base, text: plain });
+    if (res.ok) return res;
+    return this.sendMessage(chatId, plain, extra);
+  }
+
   editMessageReplyMarkup(chatId, messageId, replyMarkup) {
     return this.call("editMessageReplyMarkup", { chat_id: chatId, message_id: messageId, reply_markup: replyMarkup });
   }
