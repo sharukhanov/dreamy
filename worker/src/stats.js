@@ -67,6 +67,11 @@ export function formatStats(s, choices) {
     `• сегодня ${s.dreamsToday}, за 7 дней ${s.dreamsWeek}, всего ${s.dreamsTotal}`,
     `• в среднем ${perUser} сна на человека за неделю`,
     "",
+    "📣 Откуда пришли (по ссылкам с меткой, за 30 дней)",
+    ...((s.sources || []).length
+      ? s.sources.map((x) => `• ${x.source}: ${x.users} чел., прислали сон — ${x.dreamers}`)
+      : ["• пока нет переходов по ссылкам с меткой"]),
+    "",
     "⚠️ Проблемы",
     `• модель недоступна: сегодня ${s.failsToday}, за 7 дней ${s.failsWeek}`,
     `• упёрлись в дневной лимит сегодня: ${s.limitToday}`,

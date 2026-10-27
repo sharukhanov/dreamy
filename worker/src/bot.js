@@ -134,11 +134,15 @@ async function handleCommand(text, message, deps) {
   const chatId = message.chat.id;
   const command = text.split(/\s/)[0].split("@")[0].toLowerCase();
   switch (command) {
-    case "/start":
+    case "/start": {
       await storage.logEvent(message.from.id, "start");
+      // Метка источника из ссылки t.me/бот?start=<метка> — чтобы видеть, откуда пришли люди.
+      const source = (text.split(/\s+/)[1] || "").toLowerCase();
+      if (/^[a-z0-9_-]{1,40}$/.test(source)) await storage.logEvent(message.from.id, `src:${source}`);
       await telegram.sendMessage(chatId, texts.START);
       await sendModePicker(chatId, message.from.id, deps, true);
       break;
+    }
     case "/mode":
       await sendModePicker(chatId, message.from.id, deps);
       break;

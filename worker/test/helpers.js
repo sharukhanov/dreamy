@@ -93,6 +93,11 @@ export class MemoryStorage {
       failsWeek: 0,
       limitToday: 0,
       crisisWeek: 0,
+      sources: [...new Set(others.filter((e) => e.type.startsWith("src:")).map((e) => e.type.slice(4)))].map((source) => ({
+        source,
+        users: new Set(others.filter((e) => e.type === `src:${source}`).map((e) => e.userId)).size,
+        dreamers: 0,
+      })),
       choices: [],
     };
   }

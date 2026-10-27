@@ -286,6 +286,15 @@ describe("статистика", () => {
     expect(d.storage.statsCall.excludeIds).toEqual([OWNER_ID]);
   });
 
+  it("метка источника из ссылки ?start=... попадает в статистику", async () => {
+    const d = makeDeps([OWNER_ID], { isPublic: true });
+    await handleUpdate(messageUpdate(STRANGER_ID, "/start mamchat"), d);
+    await handleUpdate(messageUpdate(STRANGER_ID + 1, "/start <script>"), d);
+    expect(d.storage.events.map((e) => e.type)).toEqual(["start", "src:mamchat", "start"]);
+    await handleUpdate(messageUpdate(OWNER_ID, "/stats"), d);
+    expect(d.telegram.texts.at(-1)).toContain("• mamchat: 1 чел.");
+  });
+
   it("чужим /stats не показывается", async () => {
     const d = makeDeps([OWNER_ID], { isPublic: true });
     await handleUpdate(messageUpdate(STRANGER_ID, "/stats"), d);

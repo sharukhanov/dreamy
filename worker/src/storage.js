@@ -137,6 +137,20 @@ export class D1Storage {
       failsWeek: await count("model_fail", since.week),
       limitToday: await count("limit_hit", since.today),
       crisisWeek: await count("crisis", since.week),
+      // Источники за 30 дней: сколько людей пришло по каждой метке и сколько из них прислали сон.
+      sources:
+        (
+          await this.db
+            .prepare(
+              `SELECT substr(s.type, 5) AS source, COUNT(DISTINCT s.user_id) AS users, ` +
+                `COUNT(DISTINCT d.user_id) AS dreamers FROM events s ` +
+                `LEFT JOIN events d ON d.user_id = s.user_id AND d.type = 'dream_ok' ` +
+                `WHERE s.type LIKE 'src:%' AND s.created_at >= ? ${ex.replaceAll("user_id", "s.user_id")} ` +
+                "GROUP BY source ORDER BY users DESC LIMIT 15",
+            )
+            .bind(since.month, ...excludeIds)
+            .all()
+        ).results || [],
       choices: settings.results || [],
     };
   }
