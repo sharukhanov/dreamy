@@ -1,0 +1,64 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{width:1280px;height:1080px;overflow:hidden;font-family:Inter,"Noto Color Emoji",sans-serif;color:#fff;position:relative;
+ background:radial-gradient(ellipse 80% 70% at 78% 18%,#6a4bc0 0%,#2f2275 45%,#120d33 100%)}
+.stars span{position:absolute;background:#fff;border-radius:50%}
+.moon{position:absolute;right:30px;top:20px;width:400px;height:400px}
+.head{position:absolute;left:80px;top:96px;width:760px}
+h1{font-family:"Inter Display",Inter;font-weight:800;font-size:96px;line-height:.98;letter-spacing:-2px}
+h1 b{background:linear-gradient(90deg,#fff3c4,#ffc35e);-webkit-background-clip:text;color:transparent}
+.sub{margin-top:26px;font-size:30px;line-height:1.35;color:#ddd5ff;font-weight:500;width:720px}
+.chat{position:absolute;left:80px;right:80px;top:480px}
+.me{margin-left:auto;width:max-content;background:#7c5cff;border-radius:26px 26px 6px 26px;padding:20px 26px;font-size:27px;line-height:1.4;white-space:nowrap;box-shadow:0 12px 30px rgba(0,0,0,.25)}
+..bot-unused{}.bot{margin-top:20px;max-width:1000px;width:max-content;background:rgba(255,255,255,.97);color:#1d1838;border-radius:26px 26px 26px 6px;padding:26px 32px;font-size:27px;line-height:1.5;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.bot .r{margin-top:10px}
+.bot b{font-weight:700}
+.cta{position:absolute;left:80px;right:80px;bottom:70px;display:flex;align-items:center;gap:28px}
+.btn{background:linear-gradient(90deg,#ffe08a,#ffb547);color:#2a1a00;font-weight:800;font-size:32px;padding:22px 40px;border-radius:999px;box-shadow:0 14px 34px rgba(255,181,71,.35);white-space:nowrap}
+.note{font-size:24px;color:#d9d1ff;line-height:1.4;font-weight:500}
+.note b{color:#fff}
+</style></head><body>
+<div class="stars">
+ <span style="left:60px;top:40px;width:4px;height:4px;opacity:.7"></span>
+ <span style="left:640px;top:60px;width:3px;height:3px;opacity:.6"></span>
+ <span style="left:40px;top:430px;width:3px;height:3px;opacity:.5"></span>
+ <span style="left:1220px;top:460px;width:4px;height:4px;opacity:.5"></span>
+ <span style="left:700px;top:1040px;width:3px;height:3px;opacity:.5"></span>
+</div>
+<svg class="moon" viewBox="80 60 480 480" xmlns="http://www.w3.org/2000/svg">
+ <defs>
+  <linearGradient id="m" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff3c4"/><stop offset=".6" stop-color="#ffd36e"/><stop offset="1" stop-color="#f5a742"/></linearGradient>
+  <radialGradient id="g"><stop offset="0" stop-color="#ffd98a" stop-opacity=".45"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>
+  <linearGradient id="c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".95"/><stop offset="1" stop-color="#cfc6f5" stop-opacity=".9"/></linearGradient>
+  <mask id="cr"><rect x="0" y="0" width="640" height="640" fill="#000"/><circle cx="300" cy="290" r="165" fill="#fff"/><circle cx="380" cy="235" r="150" fill="#000"/></mask>
+  <path id="s" d="M0,-1 C.12,-.12 .12,-.12 1,0 C.12,.12 .12,.12 0,1 C-.12,.12 -.12,.12 -1,0 C-.12,-.12 -.12,-.12 0,-1Z"/>
+ </defs>
+ <circle cx="300" cy="290" r="230" fill="url(#g)"/>
+ <rect width="640" height="640" fill="url(#m)" mask="url(#cr)"/>
+ <path d="M188 318 Q214 344 242 322" fill="none" stroke="#9c5a12" stroke-width="9" stroke-linecap="round"/>
+ <g stroke="#9c5a12" stroke-width="6" stroke-linecap="round"><line x1="198" y1="331" x2="190" y2="345"/><line x1="215" y1="337" x2="213" y2="352"/><line x1="232" y1="333" x2="238" y2="347"/></g>
+ <circle cx="200" cy="372" r="16" fill="#ff9f7a" opacity=".45"/>
+ <use href="#s" transform="translate(445 215) scale(34)" fill="#fff6d6"/>
+ <use href="#s" transform="translate(505 330) scale(20)" fill="#ffe7a3"/>
+ <use href="#s" transform="translate(150 215) scale(16)" fill="#fff" opacity=".9"/>
+ <use href="#s" transform="translate(395 135) scale(13)" fill="#fff" opacity=".85"/>
+ <g fill="url(#c)"><circle cx="250" cy="482" r="58"/><circle cx="330" cy="455" r="72"/><circle cx="410" cy="488" r="52"/><circle cx="190" cy="505" r="40"/><rect x="180" y="490" width="270" height="55" rx="27"/></g>
+</svg>
+<div class="head">
+ <h1>Что значит<br><b>твой сон?</b></h1>
+ <div class="sub">Расскажи его текстом или голосовым — бот разберёт по сонникам и психологии за минуту</div>
+</div>
+<div class="chat">
+ <div class="me">🎙 Снилось, что опаздываю на поезд и потерял билет</div>
+ <div class="bot">
+  <div>✨ Если коротко: <b>страх упустить шанс из-за спешки.</b></div>
+  <div class="r">📖 <b>Миллер</b> — к хлопотам, которые закончатся удачно</div>
+  <div class="r">📖 <b>Традиция Ванги</b> — предостережение не спешить с решением</div>
+  <div class="r">🧠 <b>Юнг</b> — поезд как символ жизненного пути и перемен</div>
+ </div>
+</div>
+<div class="cta">
+ <div class="btn">Открыть бота →</div>
+ <div class="note"><b>@dreamy_chatz_bot</b><br>бесплатно · 8 сонников · 6 психологов</div>
+</div>
+</body></html>
