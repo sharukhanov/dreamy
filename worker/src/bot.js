@@ -139,8 +139,11 @@ async function handleCommand(text, message, deps) {
       // Метка источника из ссылки t.me/бот?start=<метка> — чтобы видеть, откуда пришли люди.
       const source = (text.split(/\s+/)[1] || "").toLowerCase();
       if (/^[a-z0-9_-]{1,40}$/.test(source)) await storage.logEvent(message.from.id, `src:${source}`);
-      await telegram.sendMessage(chatId, texts.START);
-      await sendModePicker(chatId, message.from.id, deps, true);
+      // Первый шаг — сразу прислать сон. Настройки необязательны: по умолчанию полный расклад
+      // со случайными сонниками и психологами.
+      await telegram.sendMessage(chatId, texts.START, {
+        reply_markup: { inline_keyboard: [[{ text: texts.START_SETTINGS_BUTTON, callback_data: "st:open" }]] },
+      });
       break;
     }
     case "/mode":

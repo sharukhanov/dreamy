@@ -142,12 +142,17 @@ describe("выбор сонников и психологии", () => {
   };
   const keyboardOf = (d) => lastKeyboard(d).map((b) => b.text);
 
-  it("/start: приветствие → режим → сонники → психология", async () => {
+  it("/start: короткое приветствие, сон можно слать сразу, настройки — по желанию", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
-    expect(d.telegram.texts).toEqual([texts.START, texts.CHOOSE_MODE]);
-    expect(lastKeyboard(d).map((b) => b.callback_data)).toEqual(["md:both:n", "md:books:n", "md:psy:n"]);
-    expect(keyboardOf(d)[0]).toBe(`✅ ${texts.MODE_BUTTONS.both}`);
+    expect(d.telegram.texts).toEqual([texts.START]);
+    expect(lastKeyboard(d).map((b) => b.callback_data)).toEqual(["st:open"]);
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
+    expect(d.interpreter.options.at(-1)).toEqual({ dreamBooks: [], psychology: [], mode: "both" });
+  });
+
+  it("пошаговая настройка: режим → сонники → психология (старые кнопки онбординга)", async () => {
+    const d = makeDeps();
 
     await handleUpdate(callbackUpdate(OWNER_ID, "md:both:n"), d);
     expect(d.telegram.texts.slice(-2)).toEqual([texts.modeLine("both"), texts.chooseBooks(3)]);
@@ -368,11 +373,11 @@ describe("доступ", () => {
 });
 
 describe("команды", () => {
-  it("/start показывает приветствие и выбор режима, /help — справку", async () => {
+  it("/start показывает приветствие, /help — справку", async () => {
     const d = makeDeps();
     await handleUpdate(messageUpdate(OWNER_ID, "/start"), d);
     await handleUpdate(messageUpdate(OWNER_ID, "/help"), d);
-    expect(d.telegram.texts).toEqual([texts.START, texts.CHOOSE_MODE, texts.HELP]);
+    expect(d.telegram.texts).toEqual([texts.START, texts.HELP]);
     expect(texts.HELP).toContain("не медицинский совет");
     expect(texts.HELP).toContain("/sonnik");
     expect(texts.HELP).toContain("/psy");
