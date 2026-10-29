@@ -12,7 +12,9 @@ const TRANSCRIBE_PROMPT =
 export const UNINTELLIGIBLE = "НЕРАЗБОРЧИВО";
 
 export class GeminiInterpreter {
-  constructor({ apiKey, model, fallbackModel, systemPrompt, fetchFn, timeoutMs = 25000, retryDelayMs = 1500 }) {
+  // onCall({ model, ok }) — вызывается на каждый запрос к Gemini (для подсчёта дневного лимита).
+  constructor({ apiKey, model, fallbackModel, systemPrompt, fetchFn, timeoutMs = 25000, retryDelayMs = 1500, onCall }) {
+    this.onCall = onCall || (() => {});
     this.apiKey = apiKey;
     // Первая попытка — основная модель, повтор — запасная (если задана).
     this.models = [model, fallbackModel || model];
@@ -42,8 +44,11 @@ export class GeminiInterpreter {
     for (let i = 0; i < this.models.length; i++) {
       const model = this.models[i];
       try {
-        return await attempt(model);
+        const result = await attempt(model);
+        await this.#report(model, true);
+        return result;
       } catch (err) {
+        await this.#report(model, false);
         lastError = err;
         console.warn(`Gemini (${model}): ошибка на попытке ${i + 1}/${this.models.length}: ${err.message}`);
         if (i < this.models.length - 1 && this.retryDelayMs) {
@@ -52,6 +57,14 @@ export class GeminiInterpreter {
       }
     }
     throw new InterpreterError(lastError?.message || "unknown");
+  }
+
+  async #report(model, ok) {
+    try {
+      await this.onCall({ model, ok });
+    } catch {
+      // подсчёт не должен ломать толкование
+    }
   }
 
   async #call(model, parts, systemPrompt, temperature) {

@@ -76,6 +76,25 @@ describe("Gemini", () => {
     expect(calls[0].body.generationConfig.temperature).toBe(0);
   });
 
+  it("сообщает о каждом запросе к Gemini — и удачном, и неудачном", async () => {
+    const seen = [];
+    const responses = [fail(503), ok("ок")];
+    const g = new GeminiInterpreter({
+      apiKey: "K",
+      model: "main",
+      fallbackModel: "spare",
+      systemPrompt: "S",
+      retryDelayMs: 0,
+      fetchFn: async () => responses.shift(),
+      onCall: (x) => seen.push(x),
+    });
+    await g.interpret("сон");
+    expect(seen).toEqual([
+      { model: "main", ok: false },
+      { model: "spare", ok: true },
+    ]);
+  });
+
   it("пропускает «мысли» модели", async () => {
     const resp = {
       ok: true,

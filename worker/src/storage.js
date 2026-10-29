@@ -92,67 +92,39 @@ export class D1Storage {
     }
   }
 
-  // since: { today, week, month } — ISO-время начала периодов; excludeIds — кого не считать (владелец).
-  async stats(since, excludeIds = []) {
+  // Данные для /stats: события за последние 60 дней и дата первого появления каждого человека.
+  // excludeIds — кого не считать (владелец).
+  async statsData(excludeIds = []) {
     const ex = excludeIds.length ? `AND user_id NOT IN (${excludeIds.map(() => "?").join(",")})` : "";
-    const one = async (sql, ...params) => {
-      const row = await this.db.prepare(sql).bind(...params, ...excludeIds).first();
-      return row?.n ?? 0;
-    };
-    const count = (type, from) =>
-      one(`SELECT COUNT(*) AS n FROM events WHERE type = ? AND created_at >= ? ${ex}`, type, from);
-    const active = (from) =>
-      one(`SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE type = 'dream_ok' AND created_at >= ? ${ex}`, from);
-    // Новые люди — у кого первое событие позже начала периода (здесь исключения идут раньше даты).
-    const firstSeen = async (from) => {
-      const row = await this.db
-        .prepare(
-          `SELECT COUNT(*) AS n FROM (SELECT MIN(created_at) AS m FROM events WHERE 1 = 1 ${ex} GROUP BY user_id) ` +
-            "WHERE m >= ?",
-        )
-        .bind(...excludeIds, from)
-        .first();
-      return row?.n ?? 0;
-    };
-    const settings = await this.db
-      .prepare(`SELECT dream_books, psychology, mode FROM user_settings WHERE 1 = 1 ${ex}`)
+    const since = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString();
+    const events = await this.db
+      .prepare(`SELECT user_id, type, created_at FROM events WHERE created_at >= ? ${ex} ORDER BY id LIMIT 50000`)
+      .bind(since, ...excludeIds)
+      .all();
+    const first = await this.db
+      .prepare(`SELECT user_id, MIN(created_at) AS first FROM events WHERE 1 = 1 ${ex} GROUP BY user_id`)
       .bind(...excludeIds)
       .all();
-
     return {
-      usersTotal: await one(`SELECT COUNT(DISTINCT user_id) AS n FROM events WHERE 1 = 1 ${ex}`),
-      newToday: await firstSeen(since.today),
-      newWeek: await firstSeen(since.week),
-      activeToday: await active(since.today),
-      activeWeek: await active(since.week),
-      activeMonth: await active(since.month),
-      returning: await one(
-        `SELECT COUNT(*) AS n FROM (SELECT user_id FROM events WHERE type = 'dream_ok' ${ex} ` +
-          "GROUP BY user_id HAVING COUNT(DISTINCT substr(created_at, 1, 10)) >= 2)",
-      ),
-      dreamsToday: await count("dream_ok", since.today),
-      dreamsWeek: await count("dream_ok", since.week),
-      dreamsTotal: await count("dream_ok", "0"),
-      failsToday: await count("model_fail", since.today),
-      failsWeek: await count("model_fail", since.week),
-      limitToday: await count("limit_hit", since.today),
-      crisisWeek: await count("crisis", since.week),
-      // Источники за 30 дней: сколько людей пришло по каждой метке и сколько из них прислали сон.
-      sources:
-        (
-          await this.db
-            .prepare(
-              `SELECT substr(s.type, 5) AS source, COUNT(DISTINCT s.user_id) AS users, ` +
-                `COUNT(DISTINCT d.user_id) AS dreamers FROM events s ` +
-                `LEFT JOIN events d ON d.user_id = s.user_id AND d.type = 'dream_ok' ` +
-                `WHERE s.type LIKE 'src:%' AND s.created_at >= ? ${ex.replaceAll("user_id", "s.user_id")} ` +
-                "GROUP BY source ORDER BY users DESC LIMIT 15",
-            )
-            .bind(since.month, ...excludeIds)
-            .all()
-        ).results || [],
-      choices: settings.results || [],
+      events: events.results || [],
+      firstSeen: new Map((first.results || []).map((r) => [r.user_id, r.first])),
     };
+  }
+
+  // Сколько запросов к Gemini сделал бот (по моделям) с момента sinceIso — всех людей, включая владельца.
+  async aiUsage(sinceIso) {
+    const { results } = await this.db
+      .prepare(
+        "SELECT type, COUNT(*) AS n FROM events WHERE (type LIKE 'ai:%' OR type LIKE 'ai_fail:%') AND created_at >= ? GROUP BY type",
+      )
+      .bind(sinceIso)
+      .all();
+    const usage = {};
+    for (const r of results || []) {
+      const model = r.type.slice(r.type.indexOf(":") + 1);
+      usage[model] = (usage[model] || 0) + r.n;
+    }
+    return usage;
   }
 
   async deleteAll(userId) {

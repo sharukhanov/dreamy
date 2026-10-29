@@ -74,32 +74,18 @@ export class MemoryStorage {
   async logEvent(userId, type) {
     this.events.push({ userId, type });
   }
-  async stats(since, excludeIds) {
-    this.statsCall = { since, excludeIds };
-    const others = this.events.filter((e) => !excludeIds.includes(e.userId));
-    const dreams = others.filter((e) => e.type === "dream_ok");
-    return {
-      usersTotal: new Set(others.map((e) => e.userId)).size,
-      newToday: 0,
-      newWeek: 0,
-      activeToday: new Set(dreams.map((e) => e.userId)).size,
-      activeWeek: new Set(dreams.map((e) => e.userId)).size,
-      activeMonth: new Set(dreams.map((e) => e.userId)).size,
-      returning: 0,
-      dreamsToday: dreams.length,
-      dreamsWeek: dreams.length,
-      dreamsTotal: dreams.length,
-      failsToday: others.filter((e) => e.type === "model_fail").length,
-      failsWeek: 0,
-      limitToday: 0,
-      crisisWeek: 0,
-      sources: [...new Set(others.filter((e) => e.type.startsWith("src:")).map((e) => e.type.slice(4)))].map((source) => ({
-        source,
-        users: new Set(others.filter((e) => e.type === `src:${source}`).map((e) => e.userId)).size,
-        dreamers: 0,
-      })),
-      choices: [],
-    };
+  async aiUsage(sinceIso) {
+    this.aiSince = sinceIso;
+    return this.aiUsed || {};
+  }
+  async statsData(excludeIds) {
+    this.statsCall = { excludeIds };
+    const events = this.events
+      .filter((e) => !excludeIds.includes(e.userId))
+      .map((e, i) => ({ user_id: e.userId, type: e.type, created_at: new Date(Date.now() - (100 - i) * 1000).toISOString() }));
+    const firstSeen = new Map();
+    for (const e of events) if (!firstSeen.has(e.user_id)) firstSeen.set(e.user_id, e.created_at);
+    return { events, firstSeen };
   }
   async getMode(userId) {
     return this.books.get(`${userId}:mode`) || "both";

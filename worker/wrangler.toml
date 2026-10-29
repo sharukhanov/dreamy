@@ -13,6 +13,8 @@ fallthrough = true
 # а у каждой модели свой лимит: основная + запасная дают ~1000 снов в день.
 GEMINI_MODEL = "gemini-3.5-flash-lite"
 GEMINI_FALLBACK_MODEL = "gemini-3.1-flash-lite"
+# Бесплатный дневной лимит запросов у каждой модели (для подсчёта в /stats).
+GEMINI_DAILY_LIMIT = "500"
 TIME_ZONE = "Europe/Moscow"
 # Сколько снов в сутки может прислать один человек (0 — без ограничений).
 # Люди, чьи id указаны в ALLOWED_USER_IDS, не ограничены.

@@ -4,7 +4,7 @@ import { applyMode, escapeHtml, stripMarkup, toTelegramHtml } from "./format.js"
 import { InterpreterError, UNINTELLIGIBLE } from "./gemini.js";
 import { handlePickerCallback, resultMarkup, sendModePicker, sendPicker, sendSettings } from "./picker.js";
 import { looksLikeCrisis } from "./safety.js";
-import { formatStats, periodStarts } from "./stats.js";
+import { computeMetrics, formatDashboard, geminiDayStart } from "./stats.js";
 
 const TELEGRAM_LIMIT = 4096;
 const FORGET_YES_DATA = "forget:yes";
@@ -161,10 +161,17 @@ async function handleCommand(text, message, deps) {
         await telegram.sendMessage(chatId, texts.HELP);
         break;
       }
-      await telegram.sendMessage(
-        chatId,
-        formatStats(await storage.stats(periodStarts(new Date(), timeZone), [...deps.access.ids]), deps.choices),
-      );
+      {
+        const now = new Date();
+        const { events, firstSeen } = await storage.statsData([...deps.access.ids]);
+        const dayStart = geminiDayStart(now);
+        const ai = deps.ai && {
+          ...deps.ai,
+          used: await storage.aiUsage(dayStart.toISOString()),
+          resetAt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000),
+        };
+        await telegram.sendMessage(chatId, formatDashboard(computeMetrics(events, firstSeen, now, timeZone), ai, timeZone));
+      }
       break;
     case "/history":
       await sendHistory(chatId, message.from.id, deps);

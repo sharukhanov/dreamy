@@ -269,6 +269,8 @@ describe("выбор сонников и психологии", () => {
 describe("статистика", () => {
   it("записывает события без текстов и показывает /stats владельцу без его собственных событий", async () => {
     const d = makeDeps([OWNER_ID], { isPublic: true });
+    d.ai = { models: ["m1"], dailyLimit: 500 };
+    d.storage.aiUsed = { m1: 7 };
     await handleUpdate(messageUpdate(STRANGER_ID, "/start"), d);
     await handleUpdate(messageUpdate(STRANGER_ID, DREAM), d);
     await handleUpdate(messageUpdate(OWNER_ID, DREAM), d);
@@ -279,10 +281,11 @@ describe("статистика", () => {
 
     await handleUpdate(messageUpdate(OWNER_ID, "/stats"), d);
     const report = d.telegram.texts.at(-1);
-    expect(report).toContain("📊 Статистика бота");
-    expect(report).toContain("• всего: 1");
-    expect(report).toContain("сегодня 1, за 7 дней 1, всего 1");
-    expect(report).toContain("модель недоступна: сегодня 1");
+    expect(report).toContain("📊 Dreamy · дашборд");
+    expect(report).toContain("• DAU: 1");
+    expect(report).toContain("• New: 1 · Returning: 0");
+    expect(report).toContain("⚠️ Сбои модели сегодня: 1");
+    expect(report).toContain("Основная m1: 7 / 500");
     expect(d.storage.statsCall.excludeIds).toEqual([OWNER_ID]);
   });
 
@@ -293,6 +296,7 @@ describe("статистика", () => {
     expect(d.storage.events.map((e) => e.type)).toEqual(["start", "src:mamchat", "start"]);
     await handleUpdate(messageUpdate(OWNER_ID, "/stats"), d);
     expect(d.telegram.texts.at(-1)).toContain("• mamchat: 1 чел.");
+    expect(d.telegram.texts.at(-1)).not.toContain("<script>");
   });
 
   it("чужим /stats не показывается", async () => {
