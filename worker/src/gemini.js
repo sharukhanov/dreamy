@@ -93,7 +93,11 @@ export class GeminiInterpreter {
         .map((p) => p.text)
         .join("")
         .trim();
-      if (!text) throw new Error("пустой ответ модели");
+      if (!text) {
+        const c = data?.candidates?.[0];
+        const why = [c?.finishReason, data?.promptFeedback?.blockReason].filter(Boolean).join(", ");
+        throw new Error(`пустой ответ модели${why ? ` (${why})` : ""}`);
+      }
       return text;
     } catch (err) {
       if (err.name === "AbortError") throw new Error("таймаут");
