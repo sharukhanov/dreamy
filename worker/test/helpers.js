@@ -118,12 +118,14 @@ export class FakeInterpreter {
   }
   async transcribe(audio, mimeType) {
     this.transcribed = { audio, mimeType };
+    if (this.blocked) throw new InterpreterError("blocked", { blocked: true });
     if (this.fail) throw new InterpreterError("boom");
     return this.transcript ?? "Мне снилось море и большой корабль.";
   }
   async interpret(text, options = {}) {
     this.calls.push(text);
     this.options.push(options);
+    if (this.blockDream) throw new InterpreterError("blocked", { blocked: true });
     if (this.fail) throw new InterpreterError("boom");
     return this.reply;
   }

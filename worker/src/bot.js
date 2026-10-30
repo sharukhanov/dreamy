@@ -262,7 +262,8 @@ async function handleVoice(voice, message, deps) {
   } catch (err) {
     console.error(`Пользователь ${userId}: не удалось расшифровать голосовое: ${err?.message}`);
     await storage.logEvent(userId, "voice_fail");
-    await reply(telegram, chatId, status, err instanceof InterpreterError ? texts.API_ERROR : texts.VOICE_FAILED);
+    const text = !(err instanceof InterpreterError) ? texts.VOICE_FAILED : err.blocked ? texts.VOICE_BLOCKED : texts.API_ERROR;
+    await reply(telegram, chatId, status, text);
     return;
   } finally {
     clearInterval(typing);
@@ -315,8 +316,8 @@ async function handleDream(text, message, deps, status = null) {
   } catch (err) {
     if (!(err instanceof InterpreterError)) throw err;
     console.error(`Пользователь ${userId}: модель недоступна`);
-    await storage.logEvent(userId, "model_fail");
-    await reply(telegram, chatId, status, texts.API_ERROR);
+    await storage.logEvent(userId, err.blocked ? "model_blocked" : "model_fail");
+    await reply(telegram, chatId, status, err.blocked ? texts.DREAM_BLOCKED : texts.API_ERROR);
     return;
   } finally {
     clearInterval(typing);

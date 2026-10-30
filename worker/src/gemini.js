@@ -2,7 +2,16 @@
 
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
-export class InterpreterError extends Error {}
+export class InterpreterError extends Error {
+  // blocked — Gemini отказался обрабатывать содержимое (фильтр безопасности Google), а не был недоступен.
+  constructor(message, { blocked = false } = {}) {
+    super(message);
+    this.blocked = blocked;
+  }
+}
+
+// Причины, по которым Google отказывается отвечать на само содержимое запроса.
+const BLOCK_REASONS = ["PROHIBITED_CONTENT", "SAFETY", "BLOCKLIST", "SPII", "IMAGE_SAFETY", "OTHER"];
 
 const TRANSCRIBE_PROMPT =
   "Ты расшифровываешь голосовые сообщения, в которых человек рассказывает свой сон. " +
@@ -56,7 +65,7 @@ export class GeminiInterpreter {
         }
       }
     }
-    throw new InterpreterError(lastError?.message || "unknown");
+    throw new InterpreterError(lastError?.message || "unknown", { blocked: Boolean(lastError?.blocked) });
   }
 
   async #report(model, ok) {
@@ -96,7 +105,9 @@ export class GeminiInterpreter {
       if (!text) {
         const c = data?.candidates?.[0];
         const why = [c?.finishReason, data?.promptFeedback?.blockReason].filter(Boolean).join(", ");
-        throw new Error(`пустой ответ модели${why ? ` (${why})` : ""}`);
+        const err = new Error(`пустой ответ модели${why ? ` (${why})` : ""}`);
+        err.blocked = BLOCK_REASONS.includes(c?.finishReason) || Boolean(data?.promptFeedback?.blockReason);
+        throw err;
       }
       return text;
     } catch (err) {

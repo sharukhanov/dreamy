@@ -95,6 +95,15 @@ describe("Gemini", () => {
     ]);
   });
 
+  it("отказ фильтра Google помечается как blocked", async () => {
+    const blocked = { ok: true, status: 200, json: async () => ({ candidates: [{ finishReason: "PROHIBITED_CONTENT" }] }) };
+    const { it: g } = make([blocked, { ...blocked }]);
+    const err = await g.transcribe("QUJD", "audio/ogg").catch((e) => e);
+    expect(err).toBeInstanceOf(InterpreterError);
+    expect(err.blocked).toBe(true);
+    expect(err.message).toContain("PROHIBITED_CONTENT");
+  });
+
   it("пропускает «мысли» модели", async () => {
     const resp = {
       ok: true,

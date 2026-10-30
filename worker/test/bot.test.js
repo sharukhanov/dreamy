@@ -104,6 +104,18 @@ describe("сны", () => {
     expect(d2.telegram.texts).toEqual([texts.VOICE_ACCEPTED, texts.API_ERROR]);
   });
 
+  it("голосовое, отклонённое фильтром Google, — честное объяснение, а не «нет связи»", async () => {
+    const d = makeDeps();
+    d.interpreter.blocked = true;
+    await handleUpdate(voiceUpdate(OWNER_ID), d);
+    expect(d.telegram.texts).toEqual([texts.VOICE_ACCEPTED, texts.VOICE_BLOCKED]);
+    const d2 = makeDeps();
+    d2.interpreter.blockDream = true;
+    await handleUpdate(messageUpdate(OWNER_ID, DREAM), d2);
+    expect(d2.telegram.texts.at(-1)).toBe(texts.DREAM_BLOCKED);
+    expect(d2.storage.events.map((e) => e.type)).toContain("model_blocked");
+  });
+
   it("голосовое с признаками кризиса — бережный ответ", async () => {
     const d = makeDeps();
     d.interpreter.transcript = "Снилась тьма, и я не хочу больше жить";
