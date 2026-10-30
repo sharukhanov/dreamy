@@ -20,6 +20,10 @@ TIME_ZONE = "Europe/Moscow"
 # Люди, чьи id указаны в ALLOWED_USER_IDS, не ограничены.
 DAILY_LIMIT = "10"
 
+# Workers AI — распознавание речи (Whisper) для голосовых.
+[ai]
+binding = "AI"
+
 [observability]
 enabled = true
 

@@ -258,7 +258,7 @@ async function handleVoice(voice, message, deps) {
   try {
     const audio = await telegram.downloadFile(voice.file_id);
     console.log(`Голосовое скачано: ${audio.length} символов base64, тип ${voice.mime_type || "?"}`);
-    transcript = (await interpreter.transcribe(audio, voice.mime_type || "audio/ogg")).trim();
+    transcript = (await (deps.speech || interpreter).transcribe(audio, voice.mime_type || "audio/ogg")).trim();
   } catch (err) {
     console.error(`Пользователь ${userId}: не удалось расшифровать голосовое: ${err?.message}`);
     await storage.logEvent(userId, "voice_fail");

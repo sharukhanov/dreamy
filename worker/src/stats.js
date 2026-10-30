@@ -192,7 +192,8 @@ function aiLines(ai, timeZone) {
     left += Math.max(0, ai.dailyLimit - used);
     lines.push(`• ${i === 0 ? "Основная" : "Запасная"} ${model}: ${used} / ${ai.dailyLimit}`);
   });
-  lines.push(`• Осталось ≈ ${left} запросов — это ~${left} текстовых снов или ~${Math.floor(left / 2)} голосовых`);
+  // Голосовые расшифровывает Whisper, поэтому любой сон — это один запрос к Gemini.
+  lines.push(`• Осталось ≈ ${left} запросов — это ~${left} снов (текстом или голосом)`);
   return lines;
 }
 

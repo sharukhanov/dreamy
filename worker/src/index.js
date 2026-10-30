@@ -4,6 +4,7 @@ import traditionsYaml from "../../config/traditions.yaml";
 import { handleUpdate, parseAccess } from "./bot.js";
 import { GeminiInterpreter } from "./gemini.js";
 import { createPromptBuilder, parseTraditions } from "./prompt.js";
+import { SpeechToText } from "./speech.js";
 import { D1Storage } from "./storage.js";
 import { Telegram } from "./telegram.js";
 
@@ -29,15 +30,21 @@ export default {
 
     const storage = new D1Storage(env.DB);
     const userId = update.message?.from?.id ?? update.callback_query?.from?.id ?? 0;
-    const deps = {
-      telegram: new Telegram(env.TELEGRAM_BOT_TOKEN),
-      interpreter: new GeminiInterpreter({
+    const interpreter = new GeminiInterpreter({
         apiKey: env.GEMINI_API_KEY,
         model: env.GEMINI_MODEL,
         fallbackModel: env.GEMINI_FALLBACK_MODEL,
         systemPrompt: buildPrompt,
         // Каждый запрос к Gemini записываем, чтобы в /stats видеть расход дневного лимита.
         onCall: ({ model, ok }) => storage.logEvent(userId, `${ok ? "ai" : "ai_fail"}:${model}`),
+    });
+    const deps = {
+      telegram: new Telegram(env.TELEGRAM_BOT_TOKEN),
+      interpreter,
+      speech: new SpeechToText({
+        ai: env.AI,
+        fallback: interpreter,
+        onWhisper: ({ ok }) => storage.logEvent(userId, ok ? "stt:whisper" : "stt_fail:whisper"),
       }),
       storage,
       ai: {
